@@ -1,0 +1,12 @@
+version: 1
+image: node:24-bookworm
+setup: [npm ci]
+verify:
+  build: npm run build
+environments:
+  staging:
+    setup: [npm ci, npm run build]
+    start: npm run preview -- --host 0.0.0.0 --port 4173
+    port: 4173
+    ready: { http: / }
+capabilities_dir: docs/product/capabilities
