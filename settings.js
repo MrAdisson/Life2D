@@ -3,6 +3,10 @@
 // {
 //   epsilon:  nombre, majoration de la distance (évite la division par zéro),
 //   friction: nombre, facteur appliqué à la vitesse à chaque pas (1 = aucune perte),
+//   gravity:  nombre, accélération constante vers le bas en pixels par pas²,
+//             la même pour toutes les particules (négative : vers le haut ;
+//             absente ou 0 : aucune),
+//   edges:    "bounce" (rebond, par défaut) ou "wrap" (traversée),
 //   range:    nombre, portée d'interaction en pixels : deux particules plus
 //             éloignées n'exercent aucune force l'une sur l'autre
 //             (Infinity ou absente : portée illimitée),
@@ -34,9 +38,16 @@ export const defaultSettings = {
   },
 };
 
-// Configuration de référence, affichée par la page : 20 000 particules, mêmes
-// familles, couleurs, masses et règles que le réglage historique, portée de
-// 30 pixels.
+// Réglage de départ : le réglage historique avec une portée finie de 60 pixels
+// (calcul fluide). C'est celui du préréglage « Quatre familles »
+// (presets/quatre-familles.json, vérifié par presets.test.js).
+export const startSettings = {
+  ...defaultSettings,
+  range: 60,
+};
+
+// Configuration de référence (tests) : 20 000 particules, mêmes familles,
+// couleurs, masses et règles que le réglage historique, portée de 30 pixels.
 export const referenceSettings = {
   ...defaultSettings,
   range: 30,

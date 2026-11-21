@@ -38,10 +38,10 @@ for (const field of FIELDS) {
 // settings : réglage ; width/height : dimensions de l'espace ;
 // random : générateur [0,1[ (Math.random par défaut, injectable pour les tests).
 //
-// Le réglage est lu par référence : friction, portée, bords, epsilon et règles
-// sont relus à chaque pas, donc modifiables en cours de simulation. Les types
-// et leurs nombres sont pris en compte par sync() (à appeler après les avoir
-// modifiés) ; reseed() tire de nouvelles positions.
+// Le réglage est lu par référence : friction, portée, bords, epsilon, gravité
+// et règles sont relus à chaque pas, donc modifiables en cours de simulation.
+// Les types, leurs nombres et leurs masses sont pris en compte par sync() (à
+// appeler après les avoir modifiés) ; reseed() tire de nouvelles positions.
 export const createSimulation = (
   settings,
   { width, height, random = Math.random },
@@ -53,7 +53,7 @@ export const createSimulation = (
   let groups = new Map();
   let particles = [];
   let drawOrder = new Uint32Array(0);
-  // Disposition courante : nom et nombre de chaque type, dans l'ordre.
+  // Disposition courante : nom, nombre et masse de chaque type, dans l'ordre.
   let layout = [];
 
   // Grille et coefficients (réalloués quand la taille change).
@@ -74,13 +74,17 @@ export const createSimulation = (
     layout.length === settings.types.length &&
     layout.every(
       (l, t) =>
-        l.name === settings.types[t].name && l.count === settings.types[t].count,
+        l.name === settings.types[t].name &&
+        l.count === settings.types[t].count &&
+        l.mass === (settings.types[t].mass || 0),
     );
 
   // Reconstruit les tableaux d'après settings.types. Une particule d'un type
   // qui existait déjà garde son état ; les premières sont conservées si le
   // nombre baisse, de nouvelles sont tirées s'il monte ; un type disparu perd
-  // ses particules. Renvoie false si rien n'a changé.
+  // ses particules. Si la masse fixe d'un type change, ses particules déjà
+  // présentes prennent la nouvelle masse et le rayon qui en dépend (positions
+  // et vitesses conservées). Renvoie false si rien n'a changé.
   const sync = () => {
     if (sameLayout()) return false;
     const { types } = settings;
@@ -89,7 +93,7 @@ export const createSimulation = (
     {
       let o = 0;
       for (const l of layout) {
-        oldStart.set(l.name, { start: o, count: l.count });
+        oldStart.set(l.name, { start: o, count: l.count, mass: l.mass });
         o += l.count;
       }
     }
@@ -104,10 +108,18 @@ export const createSimulation = (
       const group = [];
       const previous = oldStart.get(type.name);
       const kept = previous ? Math.min(previous.count, type.count) : 0;
+      // Nouvelle masse fixe : appliquée aux particules conservées. Masse
+      // aléatoire (absente ou 0) : chaque particule garde la sienne.
+      const remass =
+        previous && type.mass > 0 && type.mass !== previous.mass;
       for (let k = 0; k < type.count; k++, n++) {
         if (k < kept) {
           for (const field of FIELDS) {
             next[field][n] = old.state[field][previous.start + k];
+          }
+          if (remass) {
+            next.mass[n] = type.mass;
+            next.radius[n] = type.mass / 2 + 2;
           }
         } else {
           // Même ordre de tirage que la version précédente (x, y, masse).
@@ -127,7 +139,7 @@ export const createSimulation = (
     typeIndex = nextType;
     groups = nextGroups;
     count = total;
-    layout = types.map((t) => ({ name: t.name, count: t.count }));
+    layout = types.map((t) => ({ name: t.name, count: t.count, mass: t.mass || 0 }));
     // Ordre d'affichage (et de `particles`) : masse décroissante, stable.
     particles = views.slice().sort((a, b) => b.mass - a.mass);
     drawOrder = Uint32Array.from(particles, (p) => p.index);
@@ -250,7 +262,12 @@ export const createSimulation = (
 
   const update = () => {
     const { x, y, vx, vy, ax, ay, radius } = state;
-    const friction = settings.friction;
+    // Friction hors de 0…1 ramenée dans la plage ; non numérique : 1.
+    const f = settings.friction;
+    const friction = f >= 0 ? (f <= 1 ? f : 1) : f < 0 ? 0 : 1;
+    // Gravité : accélération constante vers le bas (négative : vers le haut),
+    // en pixels par pas², la même pour toutes les particules.
+    const gravity = Number.isFinite(settings.gravity) ? settings.gravity : 0;
     const wrap = settings.edges === "wrap";
     for (let i = 0; i < count; i++) {
       const r = radius[i];
@@ -267,6 +284,7 @@ export const createSimulation = (
       }
       vx[i] += ax[i];
       vy[i] += ay[i];
+      if (gravity !== 0) vy[i] += gravity;
       x[i] += vx[i];
       y[i] += vy[i];
       if (wrap) {

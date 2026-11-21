@@ -2,8 +2,9 @@
 // au système de fichiers, donc testable avec node --test).
 //
 // Forme d'un préréglage : { title, description, vignette, settings } où
-// settings a la forme de settings.js (epsilon, friction, types, rules ; range
-// et edges facultatifs).
+// settings a la forme de settings.js (epsilon, friction, range, types, rules ;
+// edges et gravity facultatifs). La portée est obligatoire et finie : aucune
+// simulation ne démarre avec une portée illimitée (calcul lent).
 import { MAX_COUNT } from "./settings-edit.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -22,14 +23,17 @@ export const validatePreset = (preset) => {
     errors.push("`settings` manquant (objet attendu)");
     return errors;
   }
-  if (!isNumber(s.epsilon) || s.epsilon < 0) {
-    errors.push("`settings.epsilon` : nombre positif ou nul attendu");
+  if (!isNumber(s.epsilon) || s.epsilon <= 0) {
+    errors.push("`settings.epsilon` : nombre > 0 attendu");
   }
   if (!isNumber(s.friction) || s.friction < 0 || s.friction > 1) {
     errors.push("`settings.friction` : nombre de 0 à 1 attendu");
   }
-  if (s.range !== undefined && !(isNumber(s.range) && s.range > 0)) {
-    errors.push("`settings.range` : nombre > 0 attendu (absent = illimitée)");
+  if (!(isNumber(s.range) && s.range > 0)) {
+    errors.push("`settings.range` : portée finie > 0 attendue");
+  }
+  if (s.gravity !== undefined && !isNumber(s.gravity)) {
+    errors.push("`settings.gravity` : nombre attendu");
   }
   if (s.edges !== undefined && s.edges !== "bounce" && s.edges !== "wrap") {
     errors.push("`settings.edges` : « bounce » ou « wrap » attendu");
