@@ -49,10 +49,11 @@ const heat = (v) => {
 
 // settings : réglage modifié en place ; onChange() : à appeler après chaque
 // modification ; onReseed() : nouveau tirage ; onPause(paused), onStep() :
-// lecture. Renvoie { setPaused, setSteps }.
+// lecture ; open : panneau déplié au départ (par défaut oui). Renvoie
+// { element, setPaused, setSteps }.
 export const createPanel = (
   parent,
-  { settings, onChange, onReseed, onPause, onStep },
+  { settings, onChange, onReseed, onPause, onStep, open = true },
 ) => {
   let paused = false;
   const root = el("aside", { className: "panel", id: "settings-panel" });
@@ -396,7 +397,14 @@ export const createPanel = (
   root.append(toggle, body);
   parent.appendChild(root);
 
+  if (!open) {
+    body.hidden = true;
+    root.classList.add("collapsed");
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
   return {
+    element: root,
     setPaused(value) {
       paused = value;
       syncPause();

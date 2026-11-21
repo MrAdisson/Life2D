@@ -374,3 +374,115 @@ button:focus-visible {
   min-height: 1em;
   color: #ff8a80;
 }
+
+/* Bouton de retour à la galerie, au-dessus de la simulation */
+button.back {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #eef0f7;
+  background: rgba(18, 20, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Galerie de préréglages */
+.gallery {
+  width: 100%;
+  max-width: 1280px;
+  box-sizing: border-box;
+  padding: 24px 24px 48px;
+  text-align: center;
+}
+.gallery h1,
+.gallery h2 {
+  color: #eef0f7;
+}
+.gallery h1 {
+  margin: 0.3em 0 0.1em;
+  font-size: 2.2em;
+}
+.gallery-intro {
+  margin: 0 0 24px;
+  color: #9aa0b4;
+}
+.gallery .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  text-align: left;
+}
+.card-preset {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.card-preset:hover {
+  border-color: #646cff;
+}
+.card-preset button {
+  color: #eef0f7;
+  background: rgba(255, 255, 255, 0.07);
+}
+.card-launch {
+  flex: 1;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none !important;
+  text-align: left;
+  font: inherit;
+}
+.card-launch img,
+.card-launch .thumb-missing {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #242424;
+}
+.thumb-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa0b4;
+  font-size: 13px;
+}
+.card-launch h2 {
+  margin: 10px 14px 4px;
+  font-size: 1.1em;
+}
+.card-launch p {
+  margin: 0 14px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #b4b9cc;
+}
+.card-edit {
+  margin: 0 12px 12px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.card-error {
+  padding: 12px 14px;
+  border-color: #ff8a80;
+  color: #ff8a80;
+}
+.card-error h2 {
+  margin: 0 0 6px;
+  font-size: 1em;
+}
+.card-error ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}

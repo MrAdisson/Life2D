@@ -1,0 +1,62 @@
+{
+  "title": "Nébuleuse",
+  "description": "Quatre nuages de couleurs différentes s'attirent doucement et la friction freine leurs mouvements. Ils se mêlent en volutes lentes qui se figent peu à peu.",
+  "vignette": "vignettes/nebuleuse.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.98,
+    "range": 250,
+    "types": [
+      {
+        "name": "violet",
+        "color": "#9d6bff",
+        "count": 500,
+        "mass": 3
+      },
+      {
+        "name": "rose",
+        "color": "#ff7eb6",
+        "count": 500,
+        "mass": 3
+      },
+      {
+        "name": "bleu",
+        "color": "#4f9dff",
+        "count": 500,
+        "mass": 3
+      },
+      {
+        "name": "turquoise",
+        "color": "#4de3d1",
+        "count": 500,
+        "mass": 3
+      }
+    ],
+    "rules": {
+      "violet": {
+        "violet": -0.2,
+        "rose": -0.32,
+        "bleu": -0.08,
+        "turquoise": -0.08
+      },
+      "rose": {
+        "violet": -0.32,
+        "rose": -0.2,
+        "bleu": -0.08,
+        "turquoise": -0.08
+      },
+      "bleu": {
+        "violet": -0.08,
+        "rose": -0.08,
+        "bleu": -0.2,
+        "turquoise": -0.32
+      },
+      "turquoise": {
+        "violet": -0.08,
+        "rose": -0.08,
+        "bleu": -0.32,
+        "turquoise": -0.2
+      }
+    }
+  }
+}

@@ -135,6 +135,10 @@ export const createRenderer = (canvas, initial) => {
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
     },
+    // Libère le contexte WebGL (la page en change à chaque simulation lancée).
+    dispose() {
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    },
     draw() {
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
