@@ -14,6 +14,6 @@ La section « Physique » du panneau règle les règles globales de la simulatio
 - **Gravité** (pixels par pas², 0 par défaut) : accélération constante ajoutée à chaque pas à la vitesse de toutes les particules, vers le bas (valeur négative : vers le haut), quelle que soit leur masse. Curseur de −0,2 à 0,2 et champ acceptant toute valeur ; une saisie non numérique est refusée avec un message.
 - **Bords** : « Rebond » (la vitesse s'inverse au contact du bord) ou « Traversée » (la particule ressort par le bord opposé).
 
-Limites : avec la traversée, les forces ne s'exercent pas à travers les bords ; une portée illimitée ou très grande ralentit le calcul avec beaucoup de particules ; la gravité est toujours verticale (pas de direction réglable) ; en rebond, une forte gravité peut faire « coller » les particules contre le bas du canevas ; un epsilon très petit peut rendre la simulation instable. Les champs acceptent la virgule ou le point selon le navigateur.
+Limites : avec la traversée, les forces ne s'exercent pas à travers les bords ; une portée illimitée ou très grande ralentit le calcul avec beaucoup de particules ; la gravité est toujours verticale (pas de direction réglable) ; en rebond, une forte gravité peut faire « coller » les particules contre le bas du canevas ; un epsilon très petit peut rendre la simulation instable.
 
 Code : `panel.js`, `settings-edit.js`, `scales.js`, `engine.js`

@@ -1,6 +1,6 @@
 {
   "title": "Quatre familles",
-  "description": "Le réglage d'origine de Life : quatre familles de masses très différentes, où les bleus légers fuient tout le monde tandis que rouges et blancs s'agrègent. Sa portée de 60 pixels garde le calcul fluide.",
+  "description": "Le réglage d'origine de Life : quatre familles de masses très différentes, où les bleus légers, repoussés par tous, emplissent l'espace autour de lourds noyaux verts. Sa portée de 60 pixels garde le calcul fluide.",
   "vignette": "vignettes/quatre-familles.svg",
   "settings": {
     "epsilon": 10,
