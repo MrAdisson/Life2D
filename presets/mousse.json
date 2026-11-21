@@ -1,0 +1,35 @@
+{
+  "title": "Mousse",
+  "description": "Des cellules roses se repoussent et s'espacent régulièrement en chassant une poussière bleue qui ne se repousse presque pas. La poussière se range sur les frontières, à égale distance des cellules, et dessine un réseau de parois proche d'une mousse ou d'un pavage de Voronoï (approximation).",
+  "vignette": "vignettes/mousse.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.9,
+    "range": 200,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "cellule",
+        "color": "#ff5a8a",
+        "count": 50,
+        "mass": 10
+      },
+      {
+        "name": "paroi",
+        "color": "#9fe0ff",
+        "count": 1500,
+        "mass": 2
+      }
+    ],
+    "rules": {
+      "cellule": {
+        "cellule": 2,
+        "paroi": 0
+      },
+      "paroi": {
+        "cellule": 4,
+        "paroi": 0.15
+      }
+    }
+  }
+}
