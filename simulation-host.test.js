@@ -110,3 +110,51 @@ test("worker : « reseed » renvoie un nouvel état sans changer les nombres", (
   assert.equal(init.count, 1585);
   assert.notDeepEqual(Array.from(positions.positions.slice(0, 4)), Array.from(before));
 });
+
+test("worker : changer la masse d'un type renvoie les nouveaux rayons, positions conservées", () => {
+  const { port, sent, send } = fakePort();
+  attachSimulation(port, { random: seeded() });
+  const settings = structuredClone(defaultSettings);
+  send({ type: "init", settings, width: 800, height: 600 });
+  const first = sent[0].data;
+  send({ type: "step", positions: sent[1].data.positions, generation: first.generation });
+  const before = sent.at(-1).data.positions.slice();
+  const radiiOf = (init, name) => {
+    const t = settings.types.findIndex((x) => x.name === name);
+    return Array.from(init.radii).filter((_, k) => init.types[k] === t);
+  };
+  assert.deepEqual(new Set(radiiOf(first, "red")), new Set([4]));
+  const changed = structuredClone(settings);
+  changed.types[0].mass = 30; // rouge : 4 -> 30
+  send({ type: "settings", settings: changed });
+  const [init, positions] = sent.slice(-2).map((m) => m.data);
+  assert.equal(init.type, "init");
+  assert.equal(init.generation, first.generation + 1);
+  assert.equal(init.count, 1585);
+  assert.deepEqual(new Set(radiiOf(init, "red")), new Set([17]));
+  assert.deepEqual(new Set(radiiOf(init, "blue")), new Set([3]));
+  // Mêmes positions (l'ordre d'affichage suit la masse : on compare les
+  // ensembles de points).
+  const points = (p) =>
+    Array.from({ length: p.length / 2 }, (_, k) => `${p[2 * k]},${p[2 * k + 1]}`).sort();
+  assert.deepEqual(points(positions.positions), points(before));
+  assert.equal(positions.steps, 1);
+});
+
+test("worker : gravité et epsilon modifiés s'appliquent au pas suivant sans « init »", () => {
+  const run = (patch) => {
+    const { port, sent, send } = fakePort();
+    attachSimulation(port, { random: seeded() });
+    const settings = structuredClone(defaultSettings);
+    settings.range = 60;
+    send({ type: "init", settings, width: 800, height: 600 });
+    const n = sent.length;
+    send({ type: "settings", settings: { ...structuredClone(settings), ...patch } });
+    assert.equal(sent.length, n);
+    send({ type: "step", positions: sent[1].data.positions, generation: sent[0].data.generation });
+    return Array.from(sent.at(-1).data.positions);
+  };
+  const plain = run({});
+  assert.notDeepEqual(run({ gravity: 0.1 }), plain);
+  assert.notDeepEqual(run({ epsilon: 1 }), plain);
+});

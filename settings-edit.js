@@ -4,6 +4,10 @@
 
 export const MAX_COUNT = 100000;
 
+// Avertissement de performance : portée illimitée avec au moins ce nombre de
+// particules.
+export const WARN_PARTICLES = 5000;
+
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
 export const getRule = (settings, a, b) => settings.rules?.[a]?.[b] ?? 0;
@@ -11,7 +15,7 @@ export const getRule = (settings, a, b) => settings.rules?.[a]?.[b] ?? 0;
 // Valeur libre (les curseurs du panneau vont de −1 à 1, mais une règle peut
 // valoir n'importe quel nombre fini, comme celles du réglage par défaut).
 export const setRule = (settings, a, b, value) => {
-  const n = value === "" || value === null ? NaN : Number(value);
+  const n = parseNumber(value);
   settings.rules ??= {};
   settings.rules[a] ??= {};
   settings.rules[a][b] = Number.isFinite(n) ? n : 0;
@@ -26,15 +30,69 @@ export const setCount = (settings, name, value) => {
 
 // Portée : nombre > 0 ; vide ou invalide : illimitée.
 export const setRange = (settings, value) => {
-  const n = value === "" || value === null ? NaN : Number(value);
+  const n = parseNumber(value);
   settings.range = n > 0 && Number.isFinite(n) ? n : Infinity;
 };
 
-// Friction : de 0 à 1.
-export const setFriction = (settings, value) => {
-  const n = Number(value);
-  settings.friction = Number.isFinite(n) ? clamp(n, 0, 1) : settings.friction;
+// Nombre saisi (la virgule décimale est acceptée) ; vide ou invalide : NaN.
+export const parseNumber = (value) => {
+  if (typeof value === "number") return value;
+  const text = String(value ?? "").trim().replace(",", ".");
+  return text === "" ? NaN : Number(text);
 };
+
+// Friction : de 0 à 1 (ramenée dans la plage) ; non numérique : ignorée.
+// Renvoie la valeur appliquée.
+export const setFriction = (settings, value) => {
+  const n = parseNumber(value);
+  if (Number.isFinite(n)) settings.friction = clamp(n, 0, 1);
+  return settings.friction;
+};
+
+// Epsilon : nombre > 0. Renvoie { ok: true } ou { ok: false, error } ; une
+// valeur refusée laisse l'ancienne en place.
+export const setEpsilon = (settings, value) => {
+  const n = parseNumber(value);
+  if (!(n > 0) || !Number.isFinite(n)) {
+    return { ok: false, error: "Epsilon doit être un nombre supérieur à 0." };
+  }
+  settings.epsilon = n;
+  return { ok: true };
+};
+
+// Gravité : tout nombre fini (0 : aucune). Même retour que setEpsilon.
+export const setGravity = (settings, value) => {
+  const n = parseNumber(value);
+  if (!Number.isFinite(n)) {
+    return { ok: false, error: "La gravité doit être un nombre (0 : aucune)." };
+  }
+  settings.gravity = n;
+  return { ok: true };
+};
+
+// Masse fixe d'un type existant : nombre > 0, appliquée aussi à ses particules
+// déjà présentes (par le moteur). Même retour que setEpsilon.
+export const setMass = (settings, name, value) => {
+  const type = settings.types.find((t) => t.name === name);
+  if (!type) return { ok: false, error: "Type inconnu." };
+  const n = parseNumber(value);
+  if (!(n > 0) || !Number.isFinite(n)) {
+    return { ok: false, error: "La masse doit être un nombre supérieur à 0." };
+  }
+  type.mass = n;
+  return { ok: true };
+};
+
+// Masse aléatoire : masse absente ou 0 (chaque particule tire la sienne).
+export const hasRandomMass = (type) => !(type.mass > 0);
+
+export const totalParticles = (settings) =>
+  settings.types.reduce((n, t) => n + t.count, 0);
+
+// Vrai quand la portée est illimitée et qu'il y a beaucoup de particules.
+export const needsRangeWarning = (settings) =>
+  !Number.isFinite(settings.range ?? Infinity) &&
+  totalParticles(settings) >= WARN_PARTICLES;
 
 export const setEdges = (settings, value) => {
   settings.edges = value === "wrap" ? "wrap" : "bounce";
@@ -50,7 +108,7 @@ export const addType = (settings, { name, color, count, mass }) => {
     return { ok: false, error: "Ce nom existe déjà." };
   }
   if (!String(color ?? "").trim()) return { ok: false, error: "Couleur requise." };
-  const m = Number(mass);
+  const m = parseNumber(mass);
   if (!(m > 0) || !Number.isFinite(m)) {
     return { ok: false, error: "La masse doit être supérieure à 0." };
   }
