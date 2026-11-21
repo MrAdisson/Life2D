@@ -26,7 +26,7 @@ Modules ES (`"type": "module"`), JavaScript formaté à la Prettier (double guil
 <!-- builder:quality -->
 ## Qualité
 
-Aucun test, lint ni vérification de types. Seul le build (`npm run build`) passe et sert de vérification.
+Pas de lint ni de vérification de types. Les tests du moteur (`engine.test.js`) se lancent avec `npm test` (`node --test`, sans dépendance) ; le build (`npm run build`) sert aussi de vérification. Le moteur (`engine.js`) est indépendant du navigateur et reçoit le réglage (`settings.js`) ; `main.js` ne garde que canevas, affichage et boucle.
 
 <!-- builder:services -->
 ## Services externes
