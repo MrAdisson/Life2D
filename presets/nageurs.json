@@ -1,0 +1,35 @@
+{
+  "title": "Nageurs",
+  "description": "Chaque particule orange est attirée par les bleues, qui la fuient : elle pousse une bleue devant elle et la paire file droit jusqu'à la prochaine collision. Ces nageurs naissent seulement de règles non réciproques, comme dans la matière active (approximation).",
+  "vignette": "vignettes/nageurs.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.97,
+    "range": 100,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "pousseur",
+        "color": "#ff8c42",
+        "count": 400,
+        "mass": 3
+      },
+      {
+        "name": "meneur",
+        "color": "#42c6ff",
+        "count": 400,
+        "mass": 3
+      }
+    ],
+    "rules": {
+      "pousseur": {
+        "pousseur": 1,
+        "meneur": -6
+      },
+      "meneur": {
+        "pousseur": 4,
+        "meneur": 1
+      }
+    }
+  }
+}

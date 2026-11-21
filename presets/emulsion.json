@@ -1,0 +1,36 @@
+{
+  "title": "Émulsion qui décante",
+  "description": "Sous la gravité, les particules orange, que le liquide bleu repousse fortement, se regroupent en gouttes et en filaments qui coulent vers le fond. Peu à peu, elles y forment une couche sous le liquide : une décantation approximative, sans vraie tension de surface.",
+  "vignette": "vignettes/emulsion.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.97,
+    "range": 100,
+    "gravity": 0.015,
+    "edges": "bounce",
+    "types": [
+      {
+        "name": "goutte",
+        "color": "#ff9f5a",
+        "count": 700,
+        "mass": 3
+      },
+      {
+        "name": "liquide",
+        "color": "#5ab0ff",
+        "count": 700,
+        "mass": 3
+      }
+    ],
+    "rules": {
+      "goutte": {
+        "goutte": 1,
+        "liquide": 2
+      },
+      "liquide": {
+        "goutte": 4,
+        "liquide": 4
+      }
+    }
+  }
+}

@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { parsePresets, validatePreset } from "./presets.js";
 import { startSettings } from "./settings.js";
+import { createSimulation } from "./engine.js";
 
 const files = readdirSync("presets").filter((f) => f.endsWith(".json"));
 const load = (f) => JSON.parse(readFileSync(`presets/${f}`, "utf8"));
 
-test("au moins 8 préréglages, tous valides", () => {
-  assert.ok(files.length >= 8);
+test("au moins 16 préréglages, tous valides", () => {
+  assert.ok(files.length >= 16);
   for (const f of files) assert.deepEqual(validatePreset(load(f)), [], f);
 });
 
@@ -25,6 +26,43 @@ test("les quatre phénomènes ont un préréglage", () => {
   const titles = files.map((f) => load(f).title.toLowerCase()).join("|");
   for (const word of ["amas", "membrane", "chasseurs", "cristallisation"]) {
     assert.ok(titles.includes(word), word);
+  }
+});
+
+test("les phénomènes ajoutés par LIFE-10 ont un préréglage", () => {
+  const titles = files.map((f) => load(f).title.toLowerCase()).join("|");
+  for (const word of ["mousse", "cristal et impuretés", "émulsion", "nageurs", "brownien"]) {
+    assert.ok(titles.includes(word), word);
+  }
+});
+
+test("les titres sont uniques", () => {
+  const titles = files.map((f) => load(f).title.trim().toLocaleLowerCase("fr"));
+  assert.equal(new Set(titles).size, titles.length);
+});
+
+// Même budget que engine.perf.test.js (50 ms par pas, médiane de 7 pas),
+// mesuré pour chaque préréglage avec ses propres nombres de particules.
+test("chaque préréglage tient dans le budget de 50 ms par pas", () => {
+  for (const f of files) {
+    const settings = load(f).settings;
+    const total = settings.types.reduce((n, t) => n + t.count, 0);
+    if (total > 10000) continue; // le budget porte sur 10 000 particules
+    let seed = 1;
+    const sim = createSimulation(settings, {
+      width: 1920,
+      height: 1080,
+      random: () => (seed = (seed * 16807) % 2147483647) / 2147483647,
+    });
+    for (let k = 0; k < 3; k++) sim.step();
+    const times = [];
+    for (let k = 0; k < 7; k++) {
+      const t0 = performance.now();
+      sim.step();
+      times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    assert.ok(times[3] < 50, `${f} : pas médian ${times[3].toFixed(1)} ms`);
   }
 });
 

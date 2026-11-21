@@ -1,0 +1,35 @@
+{
+  "title": "Cristal et impuretés",
+  "description": "Des charges toutes de même signe se repoussent dans une boîte fermée et, freinées par la friction, se rangent en un réseau régulier de triangles, comme un cristal de Wigner. Quelques impuretés lourdes et immobiles les repoussent plus fort : le réseau se creuse et se tord autour d'elles (approximation, sans mécanique quantique).",
+  "vignette": "vignettes/cristal-et-impuretes.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.9,
+    "range": 80,
+    "edges": "bounce",
+    "types": [
+      {
+        "name": "électron",
+        "color": "#9fe0ff",
+        "count": 1500,
+        "mass": 3
+      },
+      {
+        "name": "impureté",
+        "color": "#ff5a8a",
+        "count": 12,
+        "mass": 20
+      }
+    ],
+    "rules": {
+      "électron": {
+        "électron": 2,
+        "impureté": 3
+      },
+      "impureté": {
+        "électron": 0,
+        "impureté": 0
+      }
+    }
+  }
+}
