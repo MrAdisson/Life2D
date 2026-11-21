@@ -1,0 +1,35 @@
+{
+  "title": "Chasseurs et proies",
+  "description": "Les chasseurs sont attirés par les proies, qui les fuient et se serrent en bancs. La poursuite ne s'arrête jamais, car attraction et fuite ne sont pas réciproques.",
+  "vignette": "vignettes/chasseurs-proies.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.95,
+    "range": 160,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "chasseur",
+        "color": "#ff5c5c",
+        "count": 12,
+        "mass": 12
+      },
+      {
+        "name": "proie",
+        "color": "#9be7ff",
+        "count": 900,
+        "mass": 2
+      }
+    ],
+    "rules": {
+      "chasseur": {
+        "chasseur": 3.75,
+        "proie": -1.88
+      },
+      "proie": {
+        "chasseur": 7.5,
+        "proie": -0.375
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "title": "Feu d'artifice",
+  "description": "Toutes les particules se repoussent sans frein et les bords les traversent. Elles s'écartent en gerbes colorées qui ne cessent de se croiser.",
+  "vignette": "vignettes/feu-d-artifice.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 1,
+    "range": 120,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "or",
+        "color": "#ffcf5a",
+        "count": 500,
+        "mass": 2
+      },
+      {
+        "name": "rose",
+        "color": "#ff6fb5",
+        "count": 500,
+        "mass": 2
+      },
+      {
+        "name": "cyan",
+        "color": "#5ee6ff",
+        "count": 500,
+        "mass": 2
+      }
+    ],
+    "rules": {
+      "or": {
+        "or": 3,
+        "rose": 3,
+        "cyan": 3
+      },
+      "rose": {
+        "or": 3,
+        "rose": 3,
+        "cyan": 3
+      },
+      "cyan": {
+        "or": 3,
+        "rose": 3,
+        "cyan": 3
+      }
+    }
+  }
+}
