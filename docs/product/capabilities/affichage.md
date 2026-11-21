@@ -1,5 +1,5 @@
 ---
-id: affichage
+id: CAP-AFFICHAGE
 title: Affichage
 parent: 
 ---

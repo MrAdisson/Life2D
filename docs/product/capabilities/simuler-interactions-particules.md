@@ -1,7 +1,7 @@
 ---
-id: simuler-interactions-particules
+id: CAP-SIMULER-INTERACTIONS-PARTICULES
 title: Simuler les interactions entre familles de particules
-parent: simulation
+parent: CAP-SIMULATION
 ---
 
 Quatre familles de particules (rouge ×60, bleue ×1500, verte ×5, blanche ×20, de masses différentes) s'attirent ou se repoussent selon une table de coefficients (positif : répulsion, négatif : attraction, d'après le calcul), avec une force en 1/distance². La simulation démarre seule à l'ouverture de la page, positions initiales aléatoires.

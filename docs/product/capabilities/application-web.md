@@ -1,5 +1,5 @@
 ---
-id: application-web
+id: CAP-APPLICATION-WEB
 title: Application web
 parent: 
 ---
