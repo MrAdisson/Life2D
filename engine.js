@@ -37,78 +37,151 @@ for (const field of FIELDS) {
 
 // settings : réglage ; width/height : dimensions de l'espace ;
 // random : générateur [0,1[ (Math.random par défaut, injectable pour les tests).
+//
+// Le réglage est lu par référence : friction, portée, bords, epsilon et règles
+// sont relus à chaque pas, donc modifiables en cours de simulation. Les types
+// et leurs nombres sont pris en compte par sync() (à appeler après les avoir
+// modifiés) ; reseed() tire de nouvelles positions.
 export const createSimulation = (
   settings,
   { width, height, random = Math.random },
 ) => {
-  const { epsilon, friction, types, rules = {} } = settings;
-  const range = settings.range ?? Infinity;
-  const range2 = range * range;
-  const count = types.reduce((n, t) => n + t.count, 0);
+  let count = 0;
+  let state = {};
+  for (const field of FIELDS) state[field] = new Float64Array(0);
+  let typeIndex = new Uint16Array(0);
+  let groups = new Map();
+  let particles = [];
+  let drawOrder = new Uint32Array(0);
+  // Disposition courante : nom et nombre de chaque type, dans l'ordre.
+  let layout = [];
 
-  const state = {};
-  for (const field of FIELDS) state[field] = new Float64Array(count);
-  const { x, y, vx, vy, ax, ay, mass, radius } = state;
-  const typeIndex = new Uint16Array(count);
+  // Grille et coefficients (réalloués quand la taille change).
+  let cellOf, cellItems, cellX, cellY, cellType;
+  let cellStart = new Uint32Array(0);
+  let cellCursor = new Uint32Array(0);
+  let T = 0;
+  let GT = new Float64Array(0);
+  let range = Infinity;
+  let range2 = Infinity;
+  let cols = 1;
+  let rows = 1;
+  let reach = 0;
+  let inv = 0;
+  let epsilon = settings.epsilon;
 
-  // Création : même ordre de tirage que la version précédente (x, y, masse).
-  const groups = new Map();
-  const views = [];
-  let n = 0;
-  types.forEach((type, t) => {
-    const group = [];
-    for (let k = 0; k < type.count; k++, n++) {
-      x[n] = random() * width;
-      y[n] = random() * height;
-      mass[n] = type.mass || random() * 50;
-      radius[n] = mass[n] / 2 + 2;
-      typeIndex[n] = t;
-      const view = new ParticleView(state, n, type.color, type.name);
-      group.push(view);
-      views.push(view);
+  const sameLayout = () =>
+    layout.length === settings.types.length &&
+    layout.every(
+      (l, t) =>
+        l.name === settings.types[t].name && l.count === settings.types[t].count,
+    );
+
+  // Reconstruit les tableaux d'après settings.types. Une particule d'un type
+  // qui existait déjà garde son état ; les premières sont conservées si le
+  // nombre baisse, de nouvelles sont tirées s'il monte ; un type disparu perd
+  // ses particules. Renvoie false si rien n'a changé.
+  const sync = () => {
+    if (sameLayout()) return false;
+    const { types } = settings;
+    const old = { state, typeIndex };
+    const oldStart = new Map();
+    {
+      let o = 0;
+      for (const l of layout) {
+        oldStart.set(l.name, { start: o, count: l.count });
+        o += l.count;
+      }
     }
-    groups.set(type.name, group);
-  });
+    const total = types.reduce((n, t) => n + t.count, 0);
+    const next = {};
+    for (const field of FIELDS) next[field] = new Float64Array(total);
+    const nextType = new Uint16Array(total);
+    const nextGroups = new Map();
+    const views = [];
+    let n = 0;
+    types.forEach((type, t) => {
+      const group = [];
+      const previous = oldStart.get(type.name);
+      const kept = previous ? Math.min(previous.count, type.count) : 0;
+      for (let k = 0; k < type.count; k++, n++) {
+        if (k < kept) {
+          for (const field of FIELDS) {
+            next[field][n] = old.state[field][previous.start + k];
+          }
+        } else {
+          // Même ordre de tirage que la version précédente (x, y, masse).
+          next.x[n] = random() * width;
+          next.y[n] = random() * height;
+          next.mass[n] = type.mass || random() * 50;
+          next.radius[n] = next.mass[n] / 2 + 2;
+        }
+        nextType[n] = t;
+        const view = new ParticleView(next, n, type.color, type.name);
+        group.push(view);
+        views.push(view);
+      }
+      nextGroups.set(type.name, group);
+    });
+    state = next;
+    typeIndex = nextType;
+    groups = nextGroups;
+    count = total;
+    layout = types.map((t) => ({ name: t.name, count: t.count }));
+    // Ordre d'affichage (et de `particles`) : masse décroissante, stable.
+    particles = views.slice().sort((a, b) => b.mass - a.mass);
+    drawOrder = Uint32Array.from(particles, (p) => p.index);
+    cellOf = new Uint32Array(count);
+    cellItems = new Uint32Array(count);
+    cellX = new Float64Array(count);
+    cellY = new Float64Array(count);
+    cellType = new Uint32Array(count);
+    return true;
+  };
 
-  // Coefficients : G[a * T + b] = rules[a][b] (0 si absent).
-  const T = types.length;
-  const G = new Float64Array(T * T);
-  for (let a = 0; a < T; a++) {
-    for (let b = 0; b < T; b++) {
-      G[a * T + b] = rules[types[a].name]?.[types[b].name] ?? 0;
+  // Nouveau tirage : positions au hasard, vitesses et accélérations à zéro
+  // (comme au démarrage) ; nombres, masses et règles inchangés.
+  const reseed = () => {
+    const { x, y, vx, vy, ax, ay } = state;
+    for (let i = 0; i < count; i++) {
+      x[i] = random() * width;
+      y[i] = random() * height;
+      vx[i] = vy[i] = ax[i] = ay[i] = 0;
     }
-  }
+  };
 
-  // Ordre d'affichage (et de `particles`) : masse décroissante, stable.
-  const particles = views.slice().sort((a, b) => b.mass - a.mass);
-  const drawOrder = Uint32Array.from(particles, (p) => p.index);
-
-  // Grille spatiale : toute paire dans la portée est séparée d'au plus
-  // `reach` cases sur chaque axe.
-  let cellSize = Math.max(
-    range / CELLS_PER_RANGE,
-    Math.sqrt((width * height) / MAX_CELLS),
-  );
-  if (!(cellSize > 0)) cellSize = Infinity;
-  const cols = Math.max(1, Math.min(MAX_CELLS, Math.ceil(width / cellSize)));
-  const rows = Math.max(1, Math.min(MAX_CELLS, Math.ceil(height / cellSize)));
-  const reach = Number.isFinite(cellSize) ? Math.ceil(range / cellSize) : 0;
-  const inv = 1 / cellSize;
-  const cellOf = new Uint32Array(count);
-  const cellStart = new Uint32Array(cols * rows + 1);
-  const cellCursor = new Uint32Array(cols * rows);
-  // Contenu des cases, trié par case puis par indice croissant ; copies des
-  // positions et des types dans ce même ordre (lecture contiguë).
-  const cellItems = new Uint32Array(count);
-  const cellX = new Float64Array(count);
-  const cellY = new Float64Array(count);
-  const cellType = new Uint32Array(count);
-
-  // GT[b * T + a] = coefficient appliqué au type a du fait du type b.
-  const GT = new Float64Array(T * T);
-  for (let a = 0; a < T; a++) {
-    for (let b = 0; b < T; b++) GT[b * T + a] = G[a * T + b];
-  }
+  // Relit portée, epsilon, règles et dimensions de la grille.
+  const prepare = () => {
+    const { types, rules = {} } = settings;
+    epsilon = settings.epsilon;
+    range = settings.range ?? Infinity;
+    if (!(range >= 0)) range = Infinity;
+    range2 = range * range;
+    // GT[b * T + a] = coefficient appliqué au type a du fait du type b
+    // (règle absente : 0).
+    T = types.length;
+    if (GT.length !== T * T) GT = new Float64Array(T * T);
+    for (let a = 0; a < T; a++) {
+      for (let b = 0; b < T; b++) {
+        GT[b * T + a] = rules[types[a].name]?.[types[b].name] ?? 0;
+      }
+    }
+    // Grille spatiale : toute paire dans la portée est séparée d'au plus
+    // `reach` cases sur chaque axe.
+    let cellSize = Math.max(
+      range / CELLS_PER_RANGE,
+      Math.sqrt((width * height) / MAX_CELLS),
+    );
+    if (!(cellSize > 0)) cellSize = Infinity;
+    cols = Math.max(1, Math.min(MAX_CELLS, Math.ceil(width / cellSize)));
+    rows = Math.max(1, Math.min(MAX_CELLS, Math.ceil(height / cellSize)));
+    reach = Number.isFinite(cellSize) ? Math.ceil(range / cellSize) : 0;
+    inv = 1 / cellSize;
+    if (cellStart.length !== cols * rows + 1) {
+      cellStart = new Uint32Array(cols * rows + 1);
+      cellCursor = new Uint32Array(cols * rows);
+    }
+  };
 
   const cellCoord = (v, size) => {
     const c = Math.floor(v * inv);
@@ -117,6 +190,7 @@ export const createSimulation = (
   };
 
   const fillGrid = () => {
+    const { x, y } = state;
     cellStart.fill(0);
     for (let i = 0; i < count; i++) {
       const c = cellCoord(y[i], rows) * cols + cellCoord(x[i], cols);
@@ -139,6 +213,7 @@ export const createSimulation = (
   // sont ajoutées par j croissant, comme dans le calcul en O(n²) : le résultat
   // est identique au bit près à un calcul de référence limité à la portée.
   const applyForces = () => {
+    const { x, y, ax, ay, mass } = state;
     fillGrid();
     for (let j = 0; j < count; j++) {
       const xj = x[j];
@@ -174,21 +249,31 @@ export const createSimulation = (
   };
 
   const update = () => {
+    const { x, y, vx, vy, ax, ay, radius } = state;
+    const friction = settings.friction;
+    const wrap = settings.edges === "wrap";
     for (let i = 0; i < count; i++) {
       const r = radius[i];
-      // Rebond sur les bords
-      if (x[i] + r > width || x[i] - r < 0) {
-        vx[i] = -vx[i];
-        ax[i] = -ax[i];
-      }
-      if (y[i] - r < 0 || y[i] + r > height) {
-        vy[i] = -vy[i];
-        ay[i] = -ay[i];
+      if (!wrap) {
+        // Rebond sur les bords
+        if (x[i] + r > width || x[i] - r < 0) {
+          vx[i] = -vx[i];
+          ax[i] = -ax[i];
+        }
+        if (y[i] - r < 0 || y[i] + r > height) {
+          vy[i] = -vy[i];
+          ay[i] = -ay[i];
+        }
       }
       vx[i] += ax[i];
       vy[i] += ay[i];
       x[i] += vx[i];
       y[i] += vy[i];
+      if (wrap) {
+        // Bords qui se rejoignent : sortie d'un côté, retour par l'autre.
+        x[i] = ((x[i] % width) + width) % width;
+        y[i] = ((y[i] % height) + height) % height;
+      }
       vx[i] *= friction;
       vy[i] *= friction;
       ax[i] = 0;
@@ -197,12 +282,14 @@ export const createSimulation = (
   };
 
   const step = () => {
+    prepare();
     applyForces();
     update();
   };
 
   // Copie les positions dans l'ordre d'affichage : [x0, y0, x1, y1, ...].
   const writePositions = (target = new Float32Array(count * 2)) => {
+    const { x, y } = state;
     for (let k = 0; k < count; k++) {
       const i = drawOrder[k];
       target[2 * k] = x[i];
@@ -211,15 +298,34 @@ export const createSimulation = (
     return target;
   };
 
+  sync();
+  prepare();
+
   return {
-    count,
-    range,
-    state,
-    typeIndex,
-    drawOrder,
-    particles,
-    groups,
+    get count() {
+      return count;
+    },
+    get range() {
+      return range;
+    },
+    get state() {
+      return state;
+    },
+    get typeIndex() {
+      return typeIndex;
+    },
+    get drawOrder() {
+      return drawOrder;
+    },
+    get particles() {
+      return particles;
+    },
+    get groups() {
+      return groups;
+    },
     step,
+    sync,
+    reseed,
     writePositions,
   };
 };
