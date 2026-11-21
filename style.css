@@ -114,3 +114,99 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+/* Panneau de réglages */
+.panel {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  max-width: min(520px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  color: #fff;
+}
+.panel button {
+  padding: 0.3em 0.8em;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(30, 30, 30, 0.9);
+}
+.panel-body {
+  margin-top: 4px;
+  padding: 8px 12px;
+  overflow: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.8);
+  text-align: left;
+}
+.panel-body[hidden] {
+  display: none;
+}
+.panel h3 {
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+.panel .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  margin: 6px 0;
+}
+.panel .field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.panel input[type="number"],
+.panel input[type="text"],
+.panel select {
+  width: 8em;
+  box-sizing: border-box;
+}
+.panel input[type="text"] {
+  width: 6em;
+}
+.panel .type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+.panel .type-name {
+  min-width: 4em;
+}
+.panel .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #888;
+}
+.panel .matrix th,
+.panel .matrix td {
+  padding: 2px 4px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.panel .matrix input[type="range"] {
+  width: 70px;
+  vertical-align: middle;
+}
+.panel .matrix output {
+  display: inline-block;
+  min-width: 3em;
+  font-variant-numeric: tabular-nums;
+}
+.panel .hint {
+  margin: 2px 0;
+  color: #bbb;
+}
+.panel .error {
+  margin: 2px 0;
+  min-height: 1em;
+  color: #ff8a80;
+}
