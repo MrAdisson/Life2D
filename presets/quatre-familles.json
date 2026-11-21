@@ -1,0 +1,63 @@
+{
+  "title": "Quatre familles",
+  "description": "Le réglage d'origine de Life : quatre familles de masses très différentes, où les bleus légers fuient tout le monde tandis que rouges et blancs s'agrègent. Sa portée de 60 pixels garde le calcul fluide.",
+  "vignette": "vignettes/quatre-familles.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 1,
+    "range": 60,
+    "edges": "bounce",
+    "types": [
+      {
+        "name": "red",
+        "color": "red",
+        "count": 60,
+        "mass": 4
+      },
+      {
+        "name": "blue",
+        "color": "blue",
+        "count": 1500,
+        "mass": 2
+      },
+      {
+        "name": "green",
+        "color": "green",
+        "count": 5,
+        "mass": 100
+      },
+      {
+        "name": "white",
+        "color": "white",
+        "count": 20,
+        "mass": 15
+      }
+    ],
+    "rules": {
+      "red": {
+        "red": 1,
+        "blue": 1,
+        "green": -1,
+        "white": -3
+      },
+      "blue": {
+        "red": 2,
+        "blue": 2,
+        "green": 2,
+        "white": 2
+      },
+      "green": {
+        "red": 1,
+        "blue": 1,
+        "green": -1,
+        "white": 1
+      },
+      "white": {
+        "red": -5,
+        "blue": 1,
+        "green": -1,
+        "white": 1
+      }
+    }
+  }
+}

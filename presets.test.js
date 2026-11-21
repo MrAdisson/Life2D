@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { parsePresets, validatePreset } from "./presets.js";
+import { startSettings } from "./settings.js";
 
 const files = readdirSync("presets").filter((f) => f.endsWith(".json"));
 const load = (f) => JSON.parse(readFileSync(`presets/${f}`, "utf8"));
@@ -59,4 +60,24 @@ test("types et règles incohérents sont refusés", () => {
     mutate(p);
     assert.notDeepEqual(validatePreset(p), [], name);
   }
+});
+
+test("réglage de départ : préréglage « Quatre familles », portée finie de 30 à 80 px", () => {
+  const p = load("quatre-familles.json");
+  const { edges, ...settings } = p.settings;
+  assert.equal(edges, "bounce");
+  assert.deepEqual(settings, startSettings);
+  assert.ok(startSettings.range >= 30 && startSettings.range <= 80);
+});
+
+test("aucun préréglage ne démarre avec une portée illimitée", () => {
+  for (const f of files) assert.ok(Number.isFinite(load(f).settings.range), f);
+  const p = structuredClone(load(files[0]));
+  delete p.settings.range;
+  assert.notDeepEqual(validatePreset(p), []);
+  p.settings.range = 50;
+  p.settings.gravity = "fort";
+  assert.notDeepEqual(validatePreset(p), []);
+  p.settings.gravity = 0.1;
+  assert.deepEqual(validatePreset(p), []);
 });
