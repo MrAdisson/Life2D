@@ -6,12 +6,12 @@ JavaScript (modules ES) sans framework, WebGL 2 pour le dessin, Web Worker pour 
 <!-- builder:architecture -->
 ## Architecture
 
-Application front-end statique : `index.html` charge `main.js` (thread principal), qui crée un canevas plein fenêtre et le compteur, lance le Web Worker `simulation.worker.js` et dessine à chaque `requestAnimationFrame` les dernières positions reçues (`renderer.js`, WebGL 2, un disque instancié par particule). Le Worker (`simulation-host.js`) fait tourner le moteur `engine.js` : état en `Float64Array`, forces limitées à la portée du réglage grâce à une grille spatiale, sommées dans le même ordre que l'ancien calcul en O(n²) (résultat identique au bit près quand toutes les paires sont dans la portée). Les positions circulent dans un tampon `Float32Array` transféré (sans copie) entre la page et le Worker : la page renvoie le tampon pour demander le pas suivant, donc au plus un pas par image. `stats.js` calcule le compteur. `style.css` donne le style de page. Pas de serveur ni de backend. `mainbis.js` est une variante antérieure/alternative non chargée.
+Application front-end statique : `index.html` charge `main.js` (thread principal), qui crée un canevas plein fenêtre et le compteur, lance le Web Worker `simulation.worker.js` construit le panneau de réglages (`panel.js`, DOM seulement ; les modifications du réglage en mémoire sont dans `settings-edit.js`, sans accès à la page) et dessine à chaque `requestAnimationFrame` les dernières positions reçues (`renderer.js`, WebGL 2, un disque instancié par particule). Le Worker (`simulation-host.js`) fait tourner le moteur `engine.js` : état en `Float64Array`, forces limitées à la portée du réglage grâce à une grille spatiale, sommées dans le même ordre que l'ancien calcul en O(n²) (résultat identique au bit près quand toutes les paires sont dans la portée). Le panneau envoie le réglage modifié au Worker (message `settings`, `reseed` pour un nouveau tirage) ; le moteur relit friction, portée, bords et règles à chaque pas, et `sync()` reconstruit ses tableaux quand les types ou leurs nombres changent (les particules existantes gardent leur état), ce qui change la « génération » de la description des particules envoyée à la page. La pause est gérée côté page : elle garde le tampon de positions au lieu de le renvoyer, le pas à pas le renvoie une fois. Les positions circulent dans un tampon `Float32Array` transféré (sans copie) entre la page et le Worker : la page renvoie le tampon pour demander le pas suivant, donc au plus un pas par image. `stats.js` calcule le compteur. `style.css` donne le style de page. Pas de serveur ni de backend. `mainbis.js` est une variante antérieure/alternative non chargée.
 
 <!-- builder:data -->
 ## Données
 
-Aucune donnée persistée : l'état (positions, vitesses, accélérations, masses) vit en mémoire dans le Worker et est tiré au hasard à chaque chargement.
+Aucune donnée persistée (le réglage modifié depuis le panneau n'est pas sauvegardé) : l'état (positions, vitesses, accélérations, masses) vit en mémoire dans le Worker et est tiré au hasard à chaque chargement.
 
 <!-- builder:environments -->
 ## Environnements et hébergement
@@ -26,7 +26,7 @@ Modules ES (`"type": "module"`), JavaScript formaté à la Prettier (double guil
 <!-- builder:quality -->
 ## Qualité
 
-Pas de lint ni de vérification de types. Les tests (`*.test.js` : moteur, grille comparée à un calcul de référence en O(n²) et à la copie figée de l'ancien moteur `fixtures/legacy-engine.js`, protocole du Worker, compteur) se lancent avec `npm test` (`node --test`, sans dépendance) ; le build (`npm run build`) sert aussi de vérification. Le rendu WebGL n'est pas testé automatiquement. Le moteur (`engine.js`) est indépendant du navigateur et reçoit le réglage (`settings.js`) ; `main.js` ne garde que canevas, affichage et boucle.
+Pas de lint ni de vérification de types. Les tests (`*.test.js` : moteur, modifications du réglage, grille comparée à un calcul de référence en O(n²) et à la copie figée de l'ancien moteur `fixtures/legacy-engine.js`, protocole du Worker, compteur) se lancent avec `npm test` (`node --test`, sans dépendance) ; le build (`npm run build`) sert aussi de vérification. Le rendu WebGL n'est pas testé automatiquement. Le moteur (`engine.js`) est indépendant du navigateur et reçoit le réglage (`settings.js`) ; `main.js` ne garde que canevas, affichage et boucle.
 
 <!-- builder:services -->
 ## Services externes
