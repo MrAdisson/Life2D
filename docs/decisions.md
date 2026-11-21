@@ -4,7 +4,7 @@
 Aucun ADR dans le repo. Constats d'après le code et l'historique (un seul commit, « LIFE 2D INIT COMMIT ») :
 
 - Vite sans framework, canevas 2D.
-- `main.js` (4 familles, masses) a remplacé ou dépasse `mainbis.js` (3 familles, sans masse), laissé dans le repo mais non chargé.
+- `main.js` (4 familles, masses) est le point d'entrée chargé ; `mainbis.js` (3 familles, sans masse) est laissé dans le repo mais non chargé (lien de filiation non documenté).
 
 <!-- builder:open-questions -->
 ## Questions ouvertes
