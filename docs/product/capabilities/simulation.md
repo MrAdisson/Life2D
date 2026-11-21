@@ -1,5 +1,5 @@
 ---
-id: simulation
+id: CAP-SIMULATION
 title: Simulation de particules
 parent: 
 ---

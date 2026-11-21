@@ -1,7 +1,7 @@
 ---
-id: afficher-animation-plein-ecran
+id: CAP-AFFICHER-ANIMATION-PLEIN-ECRAN
 title: Voir l'animation en plein écran
-parent: affichage
+parent: CAP-AFFICHAGE
 ---
 
 Un canevas de la taille de la fenêtre est ajouté à la page ; chaque image est effacée puis les particules sont dessinées (disques colorés, les plus massives d'abord), à la cadence de `requestAnimationFrame`.

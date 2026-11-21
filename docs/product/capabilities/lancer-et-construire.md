@@ -1,7 +1,7 @@
 ---
-id: lancer-et-construire
+id: CAP-LANCER-ET-CONSTRUIRE
 title: Lancer en développement et construire le site statique
-parent: application-web
+parent: CAP-APPLICATION-WEB
 ---
 
 `npm run dev` sert la page avec rechargement à chaud, `npm run build` produit un site statique dans `dist/`, `npm run preview` le sert.

@@ -1,7 +1,7 @@
 ---
-id: rebond-sur-les-bords
+id: CAP-REBOND-SUR-LES-BORDS
 title: Faire rebondir les particules sur les bords
-parent: simulation
+parent: CAP-SIMULATION
 ---
 
 Une particule qui touche un bord du canevas voit sa vitesse inversée.
