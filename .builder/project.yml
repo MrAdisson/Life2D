@@ -3,6 +3,7 @@ image: node:24-bookworm
 setup: [npm ci]
 verify:
   build: npm run build
+  test: npm test
 environments:
   staging:
     setup: [npm ci, npm run build]
