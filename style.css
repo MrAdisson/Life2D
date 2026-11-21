@@ -177,7 +177,8 @@ button:focus-visible {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--bg);
@@ -310,7 +311,8 @@ button:focus-visible {
   text-overflow: ellipsis;
 }
 .panel .type-row input {
-  width: 90px;
+  width: 78px;
+  flex: none;
 }
 .panel .swatch {
   width: 14px;
@@ -320,7 +322,10 @@ button:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 .panel .remove {
-  padding: 4px 8px;
+  width: 30px;
+  flex: none;
+  justify-content: center;
+  padding: 4px 0;
   color: #ff9a9a;
 }
 .panel .legend {
@@ -336,38 +341,124 @@ button:focus-visible {
 .panel .legend .repulse {
   color: #ff8a8a;
 }
-.panel .matrix-scroll {
-  overflow-x: auto;
+.panel .matrix-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 4.5em) repeat(var(--n), minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
 }
-.panel .matrix {
-  border-collapse: separate;
-  border-spacing: 2px;
-}
-.panel .matrix th {
-  padding: 2px 4px;
-  font-size: 11px;
-  font-weight: 600;
+.panel .matrix-grid .corner {
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1.1;
   color: var(--muted);
-  text-align: left;
+  white-space: normal;
 }
-.panel .matrix td {
-  padding: 3px 4px;
-  border-radius: 6px;
+.panel .matrix-grid .head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+.panel .matrix-grid .row-head {
+  justify-content: flex-start;
+}
+.panel .matrix-grid .head-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-.panel .matrix td {
-  min-width: 78px;
-}
-.panel .matrix td > * {
-  display: block;
-}
-.panel .matrix input[type="range"] {
-  width: 70px;
-}
-.panel .matrix input[type="number"] {
-  width: 70px;
-  padding: 2px 4px;
   font-size: 11px;
+  color: var(--muted);
+}
+.panel .matrix-grid .swatch {
+  width: 11px;
+  height: 11px;
+}
+.panel button.rule-cell {
+  display: block;
+  min-width: 0;
+  height: 24px;
+  padding: 0 1px;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+.panel button.rule-cell.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.panel .rule-editor {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.panel .editor-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.panel .editor-title strong {
+  overflow-wrap: anywhere;
+}
+.panel .slider input[type="number"] {
+  flex: 0 0 96px;
+  width: 96px;
+}
+.panel .slider input[type="range"] {
+  min-width: 0;
+}
+.panel .type-head {
+  font-size: 11px;
+  color: var(--muted);
+}
+.panel .type-head .col {
+  width: 78px;
+  flex: none;
+}
+.panel .swatch-space {
+  width: 14px;
+  flex: none;
+}
+.panel .remove-space {
+  width: 30px;
+  flex: none;
+}
+.panel .type-row .type-name {
+  min-width: 0;
+}
+.panel .random-note {
+  display: block;
+  margin: -2px 0 4px 22px;
+  font-size: 11px;
+  color: #ffc766;
+}
+.panel .random-note[hidden],
+.panel .warning[hidden] {
+  display: none;
+}
+.panel .warning {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 180, 60, 0.5);
+  border-radius: 6px;
+  background: rgba(255, 180, 60, 0.14);
+  color: #ffd38a;
+  font-size: 12px;
+}
+.panel .type-block .error:empty {
+  display: none;
 }
 .panel .error {
   margin: 6px 0 0;
@@ -485,4 +576,7 @@ button.back {
   margin: 0;
   padding-left: 18px;
   font-size: 13px;
+}
+.panel .field + .error:empty {
+  display: none;
 }
