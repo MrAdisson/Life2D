@@ -5,7 +5,7 @@ parent: CAP-SIMULATION
 deprecated: false
 ---
 
-Un panneau « Réglages » est affiché en haut à droite de la page, déplié au chargement. Le bouton « Réglages » le replie ou le déplie sans recharger la page ; la simulation continue de tourner dans les deux cas. Les libellés sont en français.
+Un panneau « Réglages » est affiché en haut à droite de la page, déplié au chargement. Le bouton « Réglages » le replie ou le déplie sans recharger la page ; la simulation continue de tourner dans les deux cas. Chaque réglage est regroupé dans une section avec une courte explication ; les libellés sont en français. La grille des interactions colore les cellules (rouge : répulsion, bleu : attraction).
 
 Limites : les réglages ne sont pas sauvegardés (un rechargement revient au réglage de `settings.js`) ; pas d'adaptation spécifique aux petits écrans ; le panneau recouvre une partie du canevas quand il est déplié.
 

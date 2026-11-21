@@ -81,6 +81,7 @@ const loop = (now) => {
     }
   }
   renderer.draw();
+  panel.setSteps(steps);
   const stats = meter.frame(now, steps);
   if (stats) counter.textContent = formatStats({ ...stats, particles });
   requestAnimationFrame(loop);
@@ -92,7 +93,7 @@ const sendSettings = () => {
   worker.postMessage({ type: "settings", settings });
 };
 
-createPanel(document.body, {
+const panel = createPanel(document.body, {
   settings,
   onChange: sendSettings,
   onReseed: () => worker.postMessage({ type: "reseed" }),
