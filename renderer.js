@@ -61,7 +61,7 @@ const compile = (gl, type, source) => {
 
 // palette : couleur CSS de chaque type ; types, radii : type et rayon de chaque
 // particule dans l'ordre d'affichage. Renvoie null si WebGL 2 est indisponible.
-export const createRenderer = (canvas, { count, palette, types, radii }) => {
+export const createRenderer = (canvas, initial) => {
   const gl = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: true,
@@ -81,10 +81,10 @@ export const createRenderer = (canvas, { count, palette, types, radii }) => {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
-  const attribute = (name, data, size, type, { divisor, normalized, usage }) => {
+  const attribute = (name, size, type, { divisor, normalized, usage, data }) => {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, usage ?? gl.STATIC_DRAW);
+    if (data) gl.bufferData(gl.ARRAY_BUFFER, data, usage ?? gl.STATIC_DRAW);
     const location = gl.getAttribLocation(program, name);
     gl.enableVertexAttribArray(location);
     gl.vertexAttribPointer(location, size, type, normalized ?? false, 0, 0);
@@ -92,24 +92,35 @@ export const createRenderer = (canvas, { count, palette, types, radii }) => {
     return buffer;
   };
 
-  const rgba = palette.map(cssColorToRgba);
-  const colors = new Uint8Array(count * 4);
-  for (let k = 0; k < count; k++) colors.set(rgba[types[k]], k * 4);
-
   const corners = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-  attribute("a_corner", corners, 2, gl.FLOAT, { divisor: 0 });
-  attribute("a_radius", radii, 1, gl.FLOAT, { divisor: 1 });
-  attribute("a_color", colors, 4, gl.UNSIGNED_BYTE, {
+  attribute("a_corner", 2, gl.FLOAT, { divisor: 0, data: corners });
+  const radiusBuffer = attribute("a_radius", 1, gl.FLOAT, { divisor: 1 });
+  const colorBuffer = attribute("a_color", 4, gl.UNSIGNED_BYTE, {
     divisor: 1,
     normalized: true,
   });
-  const positionBuffer = attribute(
-    "a_position",
-    count * 2 * Float32Array.BYTES_PER_ELEMENT,
-    2,
-    gl.FLOAT,
-    { divisor: 1, usage: gl.DYNAMIC_DRAW },
-  );
+  const positionBuffer = attribute("a_position", 2, gl.FLOAT, { divisor: 1 });
+
+  let count = 0;
+  // (Re)charge la description des particules : appelé à la création, puis à
+  // chaque changement de types ou de nombres.
+  const load = (particles) => {
+    count = particles.count;
+    const rgba = particles.palette.map(cssColorToRgba);
+    const colors = new Uint8Array(count * 4);
+    for (let k = 0; k < count; k++) colors.set(rgba[particles.types[k]], k * 4);
+    gl.bindBuffer(gl.ARRAY_BUFFER, radiusBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, particles.radii, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      count * 2 * Float32Array.BYTES_PER_ELEMENT,
+      gl.DYNAMIC_DRAW,
+    );
+  };
+  load(initial);
 
   gl.uniform2f(gl.getUniformLocation(program, "u_size"), canvas.width, canvas.height);
   gl.viewport(0, 0, canvas.width, canvas.height);
@@ -118,6 +129,7 @@ export const createRenderer = (canvas, { count, palette, types, radii }) => {
   gl.clearColor(0, 0, 0, 0);
 
   return {
+    load,
     // positions : [x0, y0, x1, y1, ...] dans l'ordre d'affichage.
     upload(positions) {
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
