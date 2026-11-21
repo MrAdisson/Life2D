@@ -26,8 +26,10 @@ const worker = new Worker(new URL("./simulation.worker.js", import.meta.url), {
 let renderer = null;
 let received = null; // dernières positions reçues, pas encore affichées
 let steps = 0;
+let failed = false;
 
 const fail = (message) => {
+  failed = true;
   counter.textContent = message;
   worker.terminate();
 };
@@ -46,6 +48,7 @@ worker.onmessage = ({ data }) => {
 };
 
 const loop = (now) => {
+  if (failed) return;
   if (received) {
     renderer.upload(received);
     // Le tampon repart au Worker, qui calcule le pas suivant pendant que
