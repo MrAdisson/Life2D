@@ -259,24 +259,42 @@ export const createPanel = (
           const value = getRule(settings, a, b);
           const cell = el("td", {});
           cell.style.background = heat(value);
-          const out = el("output", { textContent: value.toFixed(2) });
+          const title = `${a} subit ${b} : positif repousse, négatif attire`;
           const slider = el("input", {
             type: "range",
             min: -1,
             max: 1,
             step: 0.05,
-            value,
-            title: `${a} ← ${b} : positif repousse, négatif attire`,
+            value: Math.max(-1, Math.min(1, value)),
+            title,
           });
-          slider.setAttribute("aria-label", `Règle : ${a} subit ${b}`);
+          slider.setAttribute("aria-label", `Curseur : ${a} subit ${b}`);
+          // Saisie libre : accepte toute valeur, hors −1…1 comprise.
+          const exact = el("input", {
+            type: "number",
+            step: 0.05,
+            value: Number(value.toFixed(3)),
+            title: "Valeur exacte (tout nombre accepté)",
+          });
+          exact.setAttribute("aria-label", `Valeur exacte : ${a} subit ${b}`);
+          const refresh = (v) => {
+            slider.value = Math.max(-1, Math.min(1, v));
+            if (document.activeElement !== exact) exact.value = Number(v.toFixed(3));
+            cell.style.background = heat(v);
+          };
           slider.oninput = () => {
             setRule(settings, a, b, slider.value);
-            const v = getRule(settings, a, b);
-            out.textContent = v.toFixed(2);
-            cell.style.background = heat(v);
+            refresh(getRule(settings, a, b));
             onChange();
           };
-          cell.append(slider, out);
+          exact.oninput = () => {
+            if (exact.value === "" || exact.value === "-") return;
+            setRule(settings, a, b, exact.value);
+            refresh(getRule(settings, a, b));
+            cell.style.background = heat(getRule(settings, a, b));
+            onChange();
+          };
+          cell.append(slider, exact);
           return cell;
         }),
       ),
@@ -285,9 +303,14 @@ export const createPanel = (
       el(
         "div",
         { className: "legend" },
-        el("span", { className: "attract", textContent: "◀ −1 attraction" }),
+        el("span", { className: "attract", textContent: "◀ attraction" }),
         el("span", { textContent: "0 aucune" }),
-        el("span", { className: "repulse", textContent: "répulsion +1 ▶" }),
+        el("span", { className: "repulse", textContent: "répulsion ▶" }),
+      ),
+      el(
+        "p",
+        { className: "help" },
+        "Curseur : −1 à 1. Pour une valeur plus forte (ex. 2 ou −5), tapez-la dans le champ à droite.",
       ),
       el("div", { className: "matrix-scroll" }, el("table", { className: "matrix" }, head, ...rows)),
     );

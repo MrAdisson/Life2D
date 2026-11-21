@@ -13,12 +13,18 @@ import {
 
 const fresh = () => structuredClone(defaultSettings);
 
-test("setRule borne la règle à [-1, 1]", () => {
+test("setRule accepte toute valeur finie, y compris hors de −1…1", () => {
   const s = fresh();
   setRule(s, "red", "blue", 0.5);
   assert.equal(s.rules.red.blue, 0.5);
-  setRule(s, "red", "blue", 7);
-  assert.equal(s.rules.red.blue, 1);
+  setRule(s, "red", "blue", 2);
+  assert.equal(s.rules.red.blue, 2);
+  setRule(s, "red", "blue", "-5");
+  assert.equal(s.rules.red.blue, -5);
+  setRule(s, "red", "blue", "");
+  assert.equal(s.rules.red.blue, 0);
+  setRule(s, "red", "blue", "abc");
+  assert.equal(s.rules.red.blue, 0);
   assert.equal(getRule(s, "blue", "nope"), 0);
 });
 

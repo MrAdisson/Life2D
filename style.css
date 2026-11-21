@@ -355,13 +355,18 @@ button:focus-visible {
   border-radius: 6px;
   white-space: nowrap;
 }
-.panel .matrix input[type="range"] {
-  width: 56px;
-  vertical-align: middle;
+.panel .matrix td {
+  min-width: 78px;
 }
-.panel .matrix output {
-  display: inline-block;
-  min-width: 2.8em;
+.panel .matrix td > * {
+  display: block;
+}
+.panel .matrix input[type="range"] {
+  width: 70px;
+}
+.panel .matrix input[type="number"] {
+  width: 70px;
+  padding: 2px 4px;
   font-size: 11px;
 }
 .panel .error {

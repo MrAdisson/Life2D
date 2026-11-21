@@ -8,10 +8,13 @@ const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
 export const getRule = (settings, a, b) => settings.rules?.[a]?.[b] ?? 0;
 
+// Valeur libre (les curseurs du panneau vont de −1 à 1, mais une règle peut
+// valoir n'importe quel nombre fini, comme celles du réglage par défaut).
 export const setRule = (settings, a, b, value) => {
+  const n = value === "" || value === null ? NaN : Number(value);
   settings.rules ??= {};
   settings.rules[a] ??= {};
-  settings.rules[a][b] = clamp(Number(value) || 0, -1, 1);
+  settings.rules[a][b] = Number.isFinite(n) ? n : 0;
 };
 
 export const setCount = (settings, name, value) => {
