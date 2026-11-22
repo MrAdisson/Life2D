@@ -63,6 +63,17 @@ for (const field of FIELDS) {
 // settings.G, 1 par défaut ; ε = settings.epsilon), sans portée ni règles. À
 // ne pas confondre avec settings.gravity (accélération verticale constante),
 // qui s'applique dans les deux modes.
+//
+// Pas de temps : settings.dt (nombre > 0, 1 par défaut), relu à chaque pas ;
+// step() fait avancer le temps simulé (`time`) de dt. Mode "rules" : même
+// intégration qu'avant (Euler semi-implicite : vitesse puis position), avec dt
+// en facteur (dt = 1 : calcul identique au bit près). Mode "gravity" :
+// intégrateur symplectique vitesse-Verlet (demi-pas de vitesse, pas de
+// position, nouvelles forces, demi-pas de vitesse), qui ne dérive pas en
+// énergie sur une orbite. La friction est un facteur par unité de temps
+// (friction^dt par pas) et la gravité verticale une accélération par unité de
+// temps². frame() enchaîne settings.substeps pas de dt (entier de 1 à
+// MAX_SUBSTEPS, 1 par défaut, relu à chaque image) : c'est un pas d'image.
 const component = (values, k) => {
   const v = Array.isArray(values) ? values[k] : undefined;
   return Number.isFinite(v) ? v : 0;
@@ -73,6 +84,21 @@ export const interactionOf = (settings) =>
   settings.interaction === "gravity" ? "gravity" : "rules";
 
 export const dimensionsOf = (settings) => (settings.dimensions === 3 ? 3 : 2);
+
+// Plafond du nombre de sous-pas par image (le temps de calcul d'une image est
+// proportionnel au nombre de sous-pas).
+export const MAX_SUBSTEPS = 100;
+
+// Pas de temps : nombre fini > 0, sinon 1.
+export const timeStepOf = (settings) =>
+  settings.dt > 0 && Number.isFinite(settings.dt) ? settings.dt : 1;
+
+// Sous-pas par image : entier de 1 à MAX_SUBSTEPS (partie entière ; absent ou
+// invalide : 1).
+export const substepsOf = (settings) => {
+  const n = Math.floor(settings.substeps);
+  return n >= 1 ? Math.min(n, MAX_SUBSTEPS) : 1;
+};
 
 export const createSimulation = (
   settings,
@@ -129,6 +155,16 @@ export const createSimulation = (
   // "gravity" (gravitation universelle entre tous les corps), relu à chaque pas.
   let gravityMode = false;
   let G = 1;
+  // Vitesse-Verlet (mode gravité) : ax, ay, az gardent d'un pas à l'autre
+  // l'accélération aux positions courantes. Elle est recalculée quand elle
+  // n'est plus valable : création, sync(), reseed(), passage du mode des
+  // règles au mode gravité, changement de G ou d'epsilon.
+  let accelReady = false;
+  let accelG = NaN;
+  let accelEpsilon = NaN;
+  let wasGravity = false;
+  // Temps simulé écoulé depuis la création ou le dernier reseed().
+  let time = 0;
 
   const sameLayout = () =>
     layout.length === settings.types.length &&
@@ -150,6 +186,7 @@ export const createSimulation = (
   // si rien n'a changé.
   const sync = () => {
     if (sameLayout()) return false;
+    accelReady = false;
     const { types } = settings;
     const old = { state, typeIndex };
     const oldStart = new Map();
@@ -250,6 +287,8 @@ export const createSimulation = (
       }
       vx[i] = vy[i] = ax[i] = ay[i] = 0;
     }
+    accelReady = false;
+    time = 0;
   };
 
   // Relit portée, epsilon, règles et dimensions de la grille.
@@ -262,6 +301,7 @@ export const createSimulation = (
       G = Number.isFinite(settings.G) ? settings.G : 1;
       epsilon = epsilon >= 0 && Number.isFinite(epsilon) ? epsilon : 0;
       range = range2 = Infinity;
+      if (G !== accelG || epsilon !== accelEpsilon) accelReady = false;
       return;
     }
     range = settings.range ?? Infinity;
@@ -372,14 +412,24 @@ export const createSimulation = (
     }
   };
 
-  const update = () => {
-    const { x, y, vx, vy, ax, ay, radius } = state;
-    // Friction hors de 0…1 ramenée dans la plage ; non numérique : 1.
+  // Friction hors de 0…1 ramenée dans la plage ; non numérique : 1. Facteur
+  // par unité de temps : friction^dt pour un pas de dt (dt = 1 : inchangée).
+  const frictionFor = (dt) => {
     const f = settings.friction;
     const friction = f >= 0 ? (f <= 1 ? f : 1) : f < 0 ? 0 : 1;
-    // Gravité : accélération constante vers le bas (négative : vers le haut),
-    // en pixels par pas², la même pour toutes les particules.
-    const gravity = Number.isFinite(settings.gravity) ? settings.gravity : 0;
+    return dt === 1 ? friction : friction ** dt;
+  };
+  // Gravité : accélération constante vers le bas (négative : vers le haut),
+  // en pixels par unité de temps², la même pour toutes les particules.
+  const verticalGravity = () =>
+    Number.isFinite(settings.gravity) ? settings.gravity : 0;
+
+  // Euler semi-implicite (mode des règles) : vitesse, puis position, dt en
+  // facteur (multiplier par 1 est exact : dt = 1 donne le calcul d'avant).
+  const update = (dt) => {
+    const { x, y, vx, vy, ax, ay, radius } = state;
+    const friction = frictionFor(dt);
+    const gravity = verticalGravity();
     const wrap = settings.edges === "wrap";
     for (let i = 0; i < count; i++) {
       const r = radius[i];
@@ -394,11 +444,11 @@ export const createSimulation = (
           ay[i] = -ay[i];
         }
       }
-      vx[i] += ax[i];
-      vy[i] += ay[i];
-      if (gravity !== 0) vy[i] += gravity;
-      x[i] += vx[i];
-      y[i] += vy[i];
+      vx[i] += ax[i] * dt;
+      vy[i] += ay[i] * dt;
+      if (gravity !== 0) vy[i] += gravity * dt;
+      x[i] += vx[i] * dt;
+      y[i] += vy[i] * dt;
       if (wrap) {
         // Bords qui se rejoignent : sortie d'un côté, retour par l'autre.
         x[i] = ((x[i] % width) + width) % width;
@@ -484,11 +534,10 @@ export const createSimulation = (
     }
   };
 
-  const update3d = () => {
+  const update3d = (dt) => {
     const { x, y, z, vx, vy, vz, ax, ay, az, radius } = state;
-    const f = settings.friction;
-    const friction = f >= 0 ? (f <= 1 ? f : 1) : f < 0 ? 0 : 1;
-    const gravity = Number.isFinite(settings.gravity) ? settings.gravity : 0;
+    const friction = frictionFor(dt);
+    const gravity = verticalGravity();
     const wrap = settings.edges === "wrap";
     for (let i = 0; i < count; i++) {
       const r = radius[i];
@@ -506,13 +555,13 @@ export const createSimulation = (
           az[i] = -az[i];
         }
       }
-      vx[i] += ax[i];
-      vy[i] += ay[i];
-      vz[i] += az[i];
-      if (gravity !== 0) vy[i] += gravity;
-      x[i] += vx[i];
-      y[i] += vy[i];
-      z[i] += vz[i];
+      vx[i] += ax[i] * dt;
+      vy[i] += ay[i] * dt;
+      vz[i] += az[i] * dt;
+      if (gravity !== 0) vy[i] += gravity * dt;
+      x[i] += vx[i] * dt;
+      y[i] += vy[i] * dt;
+      z[i] += vz[i] * dt;
       if (wrap) {
         x[i] = ((x[i] % width) + width) % width;
         y[i] = ((y[i] % height) + height) % height;
@@ -566,19 +615,91 @@ export const createSimulation = (
     }
   };
 
+  // Accélérations gravitationnelles aux positions courantes.
+  const computeGravity = () => {
+    const { ax, ay, az } = state;
+    ax.fill(0, 0, count);
+    ay.fill(0, 0, count);
+    az.fill(0, 0, count);
+    applyGravity();
+    accelReady = true;
+    accelG = G;
+    accelEpsilon = epsilon;
+  };
+
+  // Vitesse-Verlet (« kick-drift-kick ») : symplectique, l'énergie d'une
+  // orbite oscille sans dériver. La gravité verticale s'ajoute à
+  // l'accélération ; la friction est appliquée en fin de pas. Rebond : la
+  // vitesse est inversée avant le demi-pas (l'accélération, qui dépend
+  // seulement des positions, reste celle des forces).
+  const updateVerlet = (dt) => {
+    const { x, y, z, vx, vy, vz, ax, ay, az, radius } = state;
+    if (!accelReady) computeGravity();
+    const half = dt / 2;
+    const friction = frictionFor(dt);
+    const gravity = verticalGravity();
+    const wrap = settings.edges === "wrap";
+    for (let i = 0; i < count; i++) {
+      const r = radius[i];
+      if (!wrap) {
+        if (x[i] + r > width || x[i] - r < 0) vx[i] = -vx[i];
+        if (y[i] - r < 0 || y[i] + r > height) vy[i] = -vy[i];
+        if (is3d && (z[i] - r < 0 || z[i] + r > depth)) vz[i] = -vz[i];
+      }
+      vx[i] += ax[i] * half;
+      vy[i] += (ay[i] + gravity) * half;
+      x[i] += vx[i] * dt;
+      y[i] += vy[i] * dt;
+      if (is3d) {
+        vz[i] += az[i] * half;
+        z[i] += vz[i] * dt;
+      }
+      if (wrap) {
+        x[i] = ((x[i] % width) + width) % width;
+        y[i] = ((y[i] % height) + height) % height;
+        if (is3d) z[i] = ((z[i] % depth) + depth) % depth;
+      }
+    }
+    computeGravity();
+    for (let i = 0; i < count; i++) {
+      vx[i] = (vx[i] + ax[i] * half) * friction;
+      vy[i] = (vy[i] + (ay[i] + gravity) * half) * friction;
+      if (is3d) vz[i] = (vz[i] + az[i] * half) * friction;
+    }
+  };
+
+  // Un pas de dt (settings.dt, relu à chaque pas).
   const step = () => {
+    const dt = timeStepOf(settings);
     prepare();
     if (gravityMode) {
-      applyGravity();
-      if (is3d) update3d();
-      else update();
-    } else if (is3d) {
-      applyForces3d();
-      update3d();
+      if (!wasGravity) accelReady = false;
+      updateVerlet(dt);
     } else {
-      applyForces();
-      update();
+      if (wasGravity) {
+        // Les accélérations gardées par Verlet ne valent pas pour les règles.
+        state.ax.fill(0, 0, count);
+        state.ay.fill(0, 0, count);
+        state.az.fill(0, 0, count);
+      }
+      if (is3d) {
+        applyForces3d();
+        update3d(dt);
+      } else {
+        applyForces();
+        update(dt);
+      }
     }
+    wasGravity = gravityMode;
+    time += dt;
+  };
+
+  // Un pas d'image : settings.substeps pas de dt (relu à chaque image).
+  // Renvoie le nombre de pas calculés.
+  const frame = () => {
+    const n = substepsOf(settings);
+    for (let k = 0; k < n; k++) step();
+    return n;
   };
 
   // Copie les positions dans l'ordre d'affichage : [x0, y0, x1, y1, ...]
@@ -634,7 +755,13 @@ export const createSimulation = (
     get groups() {
       return groups;
     },
+    // Temps simulé écoulé (somme des dt des pas calculés) depuis la création
+    // ou le dernier reseed().
+    get time() {
+      return time;
+    },
     step,
+    frame,
     sync,
     reseed,
     writePositions,

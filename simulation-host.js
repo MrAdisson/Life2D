@@ -13,8 +13,10 @@
 //                   (Float32Array à remplir, transféré : POSITION_STRIDE = 3
 //                   flottants par particule, [x0, y0, z0, x1, ...] dans
 //                   l'ordre d'affichage ; z = 0 en 2D)
-//   worker -> page  { type: "positions", positions, steps, generation }
-//                   (transféré)
+//   worker -> page  { type: "positions", positions, steps, time, generation }
+//                   (transféré) ; steps : pas d'image calculés depuis le
+//                   dernier "init" ; time : temps simulé du moteur (somme des
+//                   pas de temps `dt`, remis à 0 par un nouveau tirage)
 //   page -> worker  { type: "settings", settings }   réglage modifié : pris en
 //                   compte au pas suivant, sans toucher aux positions ; si les
 //                   types ou leurs nombres changent, le worker renvoie "init"
@@ -30,7 +32,8 @@
 // ignore de même les "positions" d'une génération passée.
 //
 // Le premier message "positions" (état initial) suit "init" sans pas de calcul ;
-// ensuite, chaque demande "step" fait avancer la simulation d'un pas.
+// ensuite, chaque demande "step" fait avancer la simulation d'un pas d'image :
+// `substeps` pas de `dt` (réglage relu à chaque image, voir engine.js).
 import { createSimulation, dimensionsOf } from "./engine.js";
 
 // Flottants par particule dans le tampon de positions (x, y, z).
@@ -50,9 +53,10 @@ export const attachSimulation = (port, { random } = {}) => {
 
   const send = (positions) => {
     simulation.writePositions(positions, POSITION_STRIDE);
-    port.postMessage({ type: "positions", positions, steps, generation }, [
-      positions.buffer,
-    ]);
+    port.postMessage(
+      { type: "positions", positions, steps, time: simulation.time, generation },
+      [positions.buffer],
+    );
   };
 
   // Décrit les particules (couleurs, types, rayons) puis envoie l'état.
@@ -88,7 +92,7 @@ export const attachSimulation = (port, { random } = {}) => {
       return;
     } else if (data.type === "step") {
       if ((data.generation ?? generation) !== generation) return;
-      simulation.step();
+      simulation.frame();
       steps++;
       send(data.positions);
     } else if (data.type === "settings") {

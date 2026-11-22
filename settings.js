@@ -11,8 +11,16 @@
 //   epsilon:  nombre, majoration de la distance (évite la division par zéro) ;
 //             en mode "gravity", adoucissement : d devient sqrt(d² + ε²)
 //             (à garder petit devant les distances entre corps),
-//   friction: nombre, facteur appliqué à la vitesse à chaque pas (1 = aucune perte),
-//   gravity:  nombre, accélération constante vers le bas en pixels par pas²,
+//   dt:       nombre > 0, pas de temps (1 par défaut) : chaque pas du moteur
+//             fait avancer le temps simulé de dt. Mode "rules" : Euler
+//             semi-implicite (dt = 1 : calcul d'avant, au bit près) ; mode
+//             "gravity" : vitesse-Verlet (symplectique). Relu à chaque pas,
+//   substeps: entier de 1 à 100, pas de dt calculés par image affichée
+//             (1 par défaut), relu à chaque image,
+//   friction: nombre, facteur appliqué à la vitesse par unité de temps
+//             (friction^dt par pas ; 1 = aucune perte),
+//   gravity:  nombre, accélération constante vers le bas en pixels par
+//             unité de temps² (par pas² avec dt = 1),
 //             la même pour toutes les particules (négative : vers le haut ;
 //             absente ou 0 : aucune),
 //   edges:    "bounce" (rebond, par défaut) ou "wrap" (traversée),

@@ -4,12 +4,12 @@
 // Forme d'un préréglage : { title, description, vignette, settings } où
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
 // edges, gravity, dimensions et depth facultatifs ; chaque type peut lister
-// des corps explicites `bodies` ; interaction et G facultatifs). En mode
+// des corps explicites `bodies` ; interaction, G, dt et substeps facultatifs). En mode
 // "rules" (défaut), la portée est obligatoire et finie : aucune simulation ne
 // démarre avec une portée illimitée (calcul lent), et les règles sont
 // obligatoires. En mode "gravity" (gravitation universelle, portée toujours
 // illimitée), la portée et les règles sont facultatives.
-import { MAX_COUNT } from "./settings-edit.js";
+import { MAX_COUNT, MAX_SUBSTEPS } from "./settings-edit.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -82,6 +82,15 @@ export const validatePreset = (preset) => {
   }
   if (s.G !== undefined && !(isNumber(s.G) && s.G > 0)) {
     errors.push("`settings.G` : constante de gravitation > 0 attendue");
+  }
+  if (s.dt !== undefined && !(isNumber(s.dt) && s.dt > 0)) {
+    errors.push("`settings.dt` : pas de temps > 0 attendu");
+  }
+  if (
+    s.substeps !== undefined &&
+    !(Number.isInteger(s.substeps) && s.substeps >= 1 && s.substeps <= MAX_SUBSTEPS)
+  ) {
+    errors.push(`\`settings.substeps\` : entier de 1 à ${MAX_SUBSTEPS} attendu`);
   }
   if (s.gravity !== undefined && !isNumber(s.gravity)) {
     errors.push("`settings.gravity` : nombre attendu");
