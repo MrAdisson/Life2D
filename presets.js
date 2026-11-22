@@ -3,13 +3,48 @@
 //
 // Forme d'un préréglage : { title, description, vignette, settings } où
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
-// edges, gravity, dimensions et depth facultatifs). La portée est obligatoire et finie : aucune
+// edges, gravity, dimensions et depth facultatifs ; chaque type peut lister
+// des corps explicites `bodies`). La portée est obligatoire et finie : aucune
 // simulation ne démarre avec une portée illimitée (calcul lent).
 import { MAX_COUNT } from "./settings-edit.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const isNumber = (v) => typeof v === "number" && Number.isFinite(v);
+
+const isVector = (v) =>
+  Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(isNumber);
+
+// Corps explicites d'un type : position et vitesse de 2 ou 3 nombres, nom,
+// masse et rayon facultatifs ; le type doit compter au moins ses corps.
+const validateBodies = (t, at, errors) => {
+  if (!Array.isArray(t.bodies)) {
+    errors.push(`\`${at}.bodies\` : liste attendue`);
+    return;
+  }
+  t.bodies.forEach((b, k) => {
+    const bt = `${at}.bodies[${k}]`;
+    if (!isObject(b)) return errors.push(`\`${bt}\` : objet attendu`);
+    if (b.name !== undefined && !isText(b.name)) {
+      errors.push(`\`${bt}.name\` : nom non vide attendu`);
+    }
+    for (const field of ["position", "velocity"]) {
+      if (!isVector(b[field])) {
+        errors.push(`\`${bt}.${field}\` : tableau de 2 ou 3 nombres attendu`);
+      }
+    }
+    for (const field of ["mass", "radius"]) {
+      if (b[field] !== undefined && !(isNumber(b[field]) && b[field] > 0)) {
+        errors.push(`\`${bt}.${field}\` : nombre > 0 attendu`);
+      }
+    }
+  });
+  if (Number.isInteger(t.count) && t.count < t.bodies.length) {
+    errors.push(
+      `\`${at}.count\` : au moins ${t.bodies.length} attendu (un par corps de \`bodies\`)`,
+    );
+  }
+};
 
 // Renvoie la liste des problèmes (messages en français) ; vide = valide.
 export const validatePreset = (preset) => {
@@ -63,6 +98,7 @@ export const validatePreset = (preset) => {
       if (t.mass !== undefined && !(isNumber(t.mass) && t.mass >= 0)) {
         errors.push(`\`${at}.mass\` : nombre positif ou nul attendu`);
       }
+      if (t.bodies !== undefined) validateBodies(t, at, errors);
     });
   }
   if (!isObject(s.rules)) {

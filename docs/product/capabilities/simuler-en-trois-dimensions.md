@@ -10,7 +10,7 @@ Un réglage peut demander un espace en volume au lieu d'un plan : champ `dimensi
 Règles :
 - `dimensions` vaut `2` ou `3` ; absent : `2`. En 2D, z reste à 0 et les résultats sont exactement ceux d'avant l'arrivée de l'axe z (mêmes positions à graine identique, même temps de calcul).
 - `depth` (facultatif, en pixels, nombre fini > 0) donne la profondeur de l'espace en 3D ; absent : la plus petite des deux dimensions de la fenêtre. Il est ignoré en 2D.
-- Les positions initiales et le nouveau tirage placent les particules au hasard dans tout le volume (z compris entre 0 et la profondeur).
+- Les positions initiales et le nouveau tirage placent les particules au hasard dans tout le volume (z compris entre 0 et la profondeur), sauf les corps placés d'un préréglage (`bodies`), qui partent de leur position et de leur vitesse données, z compris.
 - La portée d'interaction se mesure en 3D : deux particules proches en x et y mais éloignées en z n'interagissent pas.
 - Les bords `bounce` (rebond) et `wrap` (traversée) s'appliquent aussi sur z, devant et derrière, comme sur x et y.
 - La gravité reste verticale (axe y), la friction et epsilon s'appliquent de la même façon sur les trois axes.

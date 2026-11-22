@@ -22,7 +22,8 @@
 //                   change, la simulation repart d'un nouveau tirage (même
 //                   réponse)
 //   page -> worker  { type: "reseed" }   nouveau tirage des positions (même
-//                   réponse que ci-dessus)
+//                   réponse que ci-dessus) ; les corps explicites (`bodies`)
+//                   reprennent leur position et leur vitesse de départ
 //
 // `generation` change à chaque "init" : le worker ignore un "step" d'une
 // génération passée (tampon de l'ancienne taille encore en route) et la page

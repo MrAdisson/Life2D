@@ -406,6 +406,11 @@ export const createPanel = (
         });
         count.dataset.type = type.name;
         count.setAttribute("aria-label", `Nombre de particules ${type.name}`);
+        // Corps placés (préréglage) : les premières particules du type.
+        const placed = Array.isArray(type.bodies) ? type.bodies.length : 0;
+        if (placed > 0) {
+          count.title = `Les ${placed} premières particules sont des corps placés à une position et une vitesse données ; en baissant le nombre, les premiers sont gardés.`;
+        }
         count.oninput = () => {
           if (count.value === "") return;
           setCount(settings, type.name, count.value);
