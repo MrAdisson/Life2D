@@ -21,7 +21,12 @@ test("réglage d'affichage : valeurs par défaut et bornes", () => {
     trails: false,
     trailLength: 100,
     labels: false,
+    zoom: 1,
   });
+  // Zoom de départ : borné comme celui de la caméra.
+  assert.equal(displayOf({ display: { zoom: 3 } }).zoom, 3);
+  assert.equal(displayOf({ display: { zoom: 1000 } }).zoom, 1);
+  assert.equal(displayOf({ display: { zoom: 0 } }).zoom, 1);
   const s = {};
   assert.equal(setSizeFactor(s, "2,5").ok, true);
   assert.equal(displayOf(s).sizeFactor, 2.5);
@@ -32,7 +37,7 @@ test("réglage d'affichage : valeurs par défaut et bornes", () => {
   assert.equal(setTrailLength(s, 501).ok, false);
   assert.equal(setTrailLength(s, 200).ok, true);
   setDisplayFlag(s, "trails", true);
-  assert.deepEqual(displayOf(s), { sizeFactor: 2.5, trails: true, trailLength: 200, labels: false });
+  assert.deepEqual(displayOf(s), { sizeFactor: 2.5, trails: true, trailLength: 200, labels: false, zoom: 1 });
 });
 
 test("traînées réservées aux préréglages à peu de corps", () => {
@@ -118,19 +123,23 @@ test("préréglage Système solaire : valide, avec noms, astre émissif et affic
   const preset = JSON.parse(readFileSync("presets/systeme-solaire.json", "utf8"));
   assert.deepEqual(validatePreset(preset), []);
   const names = preset.settings.types.flatMap((t) => t.bodies.map((b) => b.name));
-  assert.deepEqual(names, ["Soleil", "Mercure", "Vénus", "Terre", "Mars"]);
+  assert.deepEqual(names, [
+    "Soleil", "Mercure", "Vénus", "Terre", "Mars",
+    "Jupiter", "Saturne", "Uranus", "Neptune",
+  ]);
   assert.equal(preset.settings.types[0].emissive, true);
   assert.ok(trailsAvailable(names.length));
 });
 
 test("validation de display et emissive dans un préréglage", () => {
   const preset = JSON.parse(readFileSync("presets/systeme-solaire.json", "utf8"));
-  preset.settings.display = { sizeFactor: 0, trailLength: 1.5, trails: "oui" };
+  preset.settings.display = { sizeFactor: 0, trailLength: 1.5, trails: "oui", zoom: 100 };
   preset.settings.types[0].emissive = "oui";
   const errors = validatePreset(preset).join("\n");
   assert.match(errors, /sizeFactor/);
   assert.match(errors, /trailLength/);
   assert.match(errors, /trails/);
+  assert.match(errors, /zoom/);
   assert.match(errors, /emissive/);
 });
 

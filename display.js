@@ -6,8 +6,12 @@
 //   trails :     traînées activées (faux par défaut) ; sans effet au-delà de
 //                TRAIL_MAX_BODIES particules,
 //   trailLength: nombre de dernières positions gardées par corps,
-//   labels :     noms des corps affichés (faux par défaut).
+//   labels :     noms des corps affichés (faux par défaut),
+//   zoom :       zoom de la caméra au lancement et après réinitialisation
+//                (1 par défaut, de MIN_ZOOM à MAX_ZOOM de camera.js).
 // Sans accès à la page : testable avec node --test.
+
+import { MAX_ZOOM, MIN_ZOOM } from "./camera.js";
 
 export const DEFAULT_SIZE_FACTOR = 1;
 export const MIN_SIZE_FACTOR = 0.05;
@@ -38,6 +42,7 @@ export const displayOf = (settings) => {
         ? length
         : DEFAULT_TRAIL_LENGTH,
     labels: d.labels === true,
+    zoom: d.zoom >= MIN_ZOOM && d.zoom <= MAX_ZOOM ? d.zoom : 1,
   };
 };
 

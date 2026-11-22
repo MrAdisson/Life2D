@@ -232,10 +232,31 @@ test("outil : sortie déterministe, identique à solarSystemBlock", () => {
     `${JSON.stringify(solarSystemBlock({ time: "year", au: 50, pluto: true, center: [0, 0, 0] }), null, 2)}\n`,
   );
   assert.deepEqual(solarSystemBlock(), solarSystemBlock());
+  // Épaisseur (LIFE-20) : boîte plate, barycentre au milieu de l'épaisseur.
+  assert.equal(
+    run("--epaisseur", "300"),
+    `${JSON.stringify(solarSystemBlock({ thickness: 300 }), null, 2)}\n`,
+  );
+});
+
+test("bloc : taille de l'espace fixée, épaisseur réglable, orbites dans la boîte", () => {
+  const cube = solarSystemBlock();
+  assert.equal(cube.width, cube.depth);
+  assert.equal(cube.height, cube.depth);
+  const flat = solarSystemBlock({ thickness: 300 });
+  assert.equal(flat.width, cube.width);
+  assert.equal(flat.depth, 300);
+  const sun = flat.types[0].bodies[0].position;
+  assert.ok(Math.abs(sun[2] - 150) < 1, `Soleil à z = ${sun[2]}`);
+  for (const t of flat.types) {
+    const [x, y, z] = t.bodies[0].position;
+    assert.ok(x > 0 && x < flat.width && y > 0 && y < flat.height && z > 0 && z < 300, t.name);
+  }
+  assert.throws(() => solarSystemBlock({ thickness: 0 }), /épaisseur/);
 });
 
 test("outil : option invalide refusée avec un message en français", () => {
-  for (const args of [["--temps", "heure"], ["--ua", "abc"], ["--centre", "1,2"], ["--inconnue"]]) {
+  for (const args of [["--temps", "heure"], ["--ua", "abc"], ["--centre", "1,2"], ["--epaisseur", "abc"], ["--inconnue"]]) {
     const result = spawnSync(process.execPath, ["tools/make-solar-system.js", ...args], {
       encoding: "utf8",
     });

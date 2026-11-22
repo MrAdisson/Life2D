@@ -4,7 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createSimulation } from "./engine.js";
+import { createSimulation, frameSteps } from "./engine.js";
+import { SOLAR_SYSTEM } from "./solar-system.js";
+import { DEFAULT_AU } from "./orbital-elements.js";
 
 const W = 1280;
 const H = 720;
@@ -139,4 +141,100 @@ test("Mouvement brownien : les grains errent, le gaz reste agité", () => {
   const speed = mean(gas.map((i) => Math.hypot(vx[i], vy[i])));
   // Agité sans s'emballer (friction juste sous 1).
   assert.ok(speed > 0.5 && speed < 2, `vitesse du gaz ${speed.toFixed(2)} px/pas`);
+});
+
+// LIFE-20 : « Système solaire ». Le préréglage est simulé image par image
+// (frame(), comme dans la page), à plusieurs vitesses.
+const solar = (speed = 1) => {
+  const settings = JSON.parse(readFileSync("presets/systeme-solaire.json", "utf8")).settings;
+  settings.speed = speed;
+  const sim = createSimulation(settings, { width: W, height: H, random: seeded(42) });
+  const index = (name) => {
+    const t = settings.types.findIndex((type) => type.name === name);
+    for (let i = 0; i < sim.count; i++) if (sim.typeIndex[i] === t) return i;
+    throw new Error(name);
+  };
+  const names = settings.types.map((t) => t.name);
+  const sun = index("Soleil");
+  const rel = (i) => {
+    const s = sim.state;
+    return [s.x[i] - s.x[sun], s.y[i] - s.y[sun], s.z[i] - s.z[sun]];
+  };
+  return { settings, sim, index, names, sun, rel };
+};
+
+// Distance au Soleil de chaque planète, minimum et maximum, pendant `years`
+// années simulées ; les planètes ne doivent ni tomber ni s'échapper.
+const distances = ({ sim, names, index, rel }, years) => {
+  const planets = names.slice(1).map((name) => ({ name, i: index(name), min: Infinity, max: 0 }));
+  const until = years * 365.25;
+  while (sim.time < until) {
+    sim.frame();
+    for (const p of planets) {
+      const d = Math.hypot(...rel(p.i));
+      p.min = Math.min(p.min, d);
+      p.max = Math.max(p.max, d);
+    }
+  }
+  return planets;
+};
+
+// Préréglage généré avec l'échelle par défaut : 1 UA = DEFAULT_AU unités.
+const keepsOrbits = (planets) => {
+  for (const p of planets) {
+    const { elements } = SOLAR_SYSTEM.find((b) => b.name === p.name);
+    const perihelion = elements.a * (1 - elements.e) * DEFAULT_AU;
+    const aphelion = elements.a * (1 + elements.e) * DEFAULT_AU;
+    // 3 % de marge : les autres planètes perturbent un peu les orbites.
+    assert.ok(p.min > 0.97 * perihelion, `${p.name} : ${p.min.toFixed(1)} < périhélie ${perihelion.toFixed(1)}`);
+    assert.ok(p.max < 1.03 * aphelion, `${p.name} : ${p.max.toFixed(1)} > aphélie ${aphelion.toFixed(1)}`);
+  }
+};
+
+test("Système solaire : la Terre fait un tour en une année simulée (à 0,5 % près)", () => {
+  const { sim, index, rel } = solar();
+  const earth = index("Terre");
+  const start = rel(earth);
+  let previous = start;
+  let angle = 0;
+  let lap = null;
+  while (lap === null && sim.time < 400) {
+    const before = sim.time;
+    sim.frame();
+    const r = rel(earth);
+    // Angle balayé dans le plan x, y (inclinaison de la Terre ≈ 0).
+    const step = Math.atan2(
+      previous[0] * r[1] - previous[1] * r[0],
+      previous[0] * r[0] + previous[1] * r[1],
+    );
+    if (angle < 2 * Math.PI && angle + step >= 2 * Math.PI) {
+      lap = before + ((sim.time - before) * (2 * Math.PI - angle)) / step;
+    }
+    angle += step;
+    previous = r;
+  }
+  assert.ok(lap !== null, "aucun tour complet en 400 jours");
+  assert.ok(Math.abs(lap / 365.25 - 1) < 0.005, `${lap.toFixed(1)} jours`);
+});
+
+test("Système solaire : aucune planète éjectée ni tombée sur dix années simulées", () => {
+  const system = solar();
+  keepsOrbits(distances(system, 10));
+  // Les corps restent dans l'espace du préréglage (aucun rebond sur un bord).
+  const { sim, settings } = system;
+  for (let i = 0; i < sim.count; i++) {
+    const s = sim.state;
+    assert.ok(s.x[i] > 0 && s.x[i] < settings.width);
+    assert.ok(s.y[i] > 0 && s.y[i] < settings.height);
+    assert.ok(s.z[i] > 0 && s.z[i] < settings.depth);
+  }
+});
+
+test("Système solaire : orbites gardées de 0,1× à 1000× (vitesse plafonnée)", () => {
+  for (const [speed, years] of [[0.1, 0.5], [10, 5], [100, 20], [1000, 20]]) {
+    const system = solar(speed);
+    keepsOrbits(distances(system, years));
+    // Le pas de temps ne dépasse jamais celui du préréglage.
+    assert.ok(frameSteps(system.settings).dt <= system.settings.dt + 1e-12, `${speed}×`);
+  }
 });

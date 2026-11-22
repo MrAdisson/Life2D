@@ -1,10 +1,12 @@
-// Écrit le bloc `G` / `epsilon` / `timeUnit` / `depth` / `types` (corps
+// Écrit le bloc `G` / `epsilon` / `timeUnit` / `width` / `height` / `depth` /
+// `types` (corps
 // explicites `bodies`) d'un préréglage « système solaire » à partir des
 // éléments orbitaux de solar-system.js. Déterministe : mêmes options, même
 // sortie, au caractère près.
 //
 // Usage : node tools/make-solar-system.js [--ua 100] [--temps jour|annee]
-//           [--pluton] [--centre x,y,z] [--preset presets/fichier.json]
+//           [--pluton] [--epaisseur n] [--centre x,y,z]
+//           [--preset presets/fichier.json]
 // Sans --preset, le bloc est écrit en JSON sur la sortie standard. Avec
 // --preset, ces clés de `settings` sont remplacées dans le fichier (les
 // autres réglages, le titre et la description sont gardés).
@@ -29,6 +31,7 @@ for (let k = 0; k < args.length; k++) {
     else if (t === "annee" || t === "année") options.time = "year";
     else fail("--temps : « jour » ou « annee » attendu");
   } else if (arg === "--pluton") options.pluto = true;
+  else if (arg === "--epaisseur") options.thickness = Number(value());
   else if (arg === "--centre") {
     const c = value().split(",").map(Number);
     if (c.length !== 3 || !c.every(Number.isFinite)) fail("--centre : x,y,z attendu");
@@ -49,7 +52,7 @@ if (preset) {
   data.settings = { ...data.settings, ...block };
   writeFileSync(preset, `${JSON.stringify(data, null, 2)}\n`);
   process.stderr.write(
-    `${preset} : ${block.types.length} corps écrits (boîte de ${block.depth} unités de côté)\n`,
+    `${preset} : ${block.types.length} corps écrits (boîte de ${block.width} × ${block.height} × ${block.depth} unités)\n`,
   );
 } else {
   process.stdout.write(`${JSON.stringify(block, null, 2)}\n`);
