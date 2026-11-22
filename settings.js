@@ -16,7 +16,14 @@
 //   depth:    nombre, profondeur de l'espace en pixels (3D seulement ; absente :
 //             la plus petite des dimensions du canevas), bornant z pour les
 //             bords "bounce" et "wrap",
-//   types:    [{ name, color, count, mass }],  // mass absente ou 0 : masse aléatoire (0-50)
+//   types:    [{ name, color, count, mass, bodies }],  // mass absente ou 0 : masse aléatoire (0-50)
+//             bodies (facultatif) : corps placés à un état exact,
+//             [{ name, position: [x, y, z], velocity: [vx, vy, vz], mass, radius }]
+//             (name, mass et radius facultatifs ; z et vz facultatifs, ignorés
+//             en 2D). Les `bodies.length` premières particules du type sont
+//             ces corps (count >= bodies.length dans un préréglage) ; les
+//             suivantes sont tirées au hasard. Masse du corps absente : celle
+//             du type ; rayon absent : dérivé de la masse (masse / 2 + 2),
 //   rules:    { [nomDuType]: { [nomDeLAutreType]: g } },
 // }
 //

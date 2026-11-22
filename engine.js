@@ -52,6 +52,15 @@ for (const field of FIELDS) {
 // (même code, mêmes tirages aléatoires) ; en 3D, la distance, la grille et les
 // bords portent sur les trois axes, la profondeur (settings.depth, relue à
 // chaque pas) bornant z.
+// Corps explicites : un type peut lister `bodies` ([{ name, position,
+// velocity, mass, radius }], voir settings.js) ; ses premières particules
+// prennent cet état exact au lieu d'un tirage. En 2D, la composante z donnée
+// est ignorée (z et vz restent à 0) ; un tableau de deux nombres donne z = 0.
+const component = (values, k) => {
+  const v = Array.isArray(values) ? values[k] : undefined;
+  return Number.isFinite(v) ? v : 0;
+};
+
 export const dimensionsOf = (settings) => (settings.dimensions === 3 ? 3 : 2);
 
 export const createSimulation = (
@@ -65,6 +74,20 @@ export const createSimulation = (
       ? settings.depth
       : fallbackDepth;
   let depth = readDepth();
+
+  // Position et vitesse de départ du corps ; accélération à zéro.
+  const placeBody = (target, n, body) => {
+    target.x[n] = component(body.position, 0);
+    target.y[n] = component(body.position, 1);
+    target.vx[n] = component(body.velocity, 0);
+    target.vy[n] = component(body.velocity, 1);
+    target.ax[n] = target.ay[n] = 0;
+    if (is3d) {
+      target.z[n] = component(body.position, 2);
+      target.vz[n] = component(body.velocity, 2);
+      target.az[n] = 0;
+    }
+  };
   let count = 0;
   let state = {};
   for (const field of FIELDS) state[field] = new Float64Array(0);
@@ -74,6 +97,8 @@ export const createSimulation = (
   let drawOrder = new Uint32Array(0);
   // Disposition courante : nom, nombre et masse de chaque type, dans l'ordre.
   let layout = [];
+  // Corps explicite de chaque particule (entrée de `type.bodies`), ou null.
+  let bodyOf = [];
 
   // Grille et coefficients (réalloués quand la taille change).
   let cellOf, cellItems, cellX, cellY, cellZ, cellType;
@@ -104,7 +129,10 @@ export const createSimulation = (
   // nombre baisse, de nouvelles sont tirées s'il monte ; un type disparu perd
   // ses particules. Si la masse fixe d'un type change, ses particules déjà
   // présentes prennent la nouvelle masse et le rayon qui en dépend (positions
-  // et vitesses conservées). Renvoie false si rien n'a changé.
+  // et vitesses conservées). Les `bodies.length` premières particules d'un type
+  // à corps explicites (`type.bodies`) sont créées à l'état donné ; un corps
+  // retiré (nombre en baisse) puis rajouté repart de cet état. Renvoie false
+  // si rien n'a changé.
   const sync = () => {
     if (sameLayout()) return false;
     const { types } = settings;
@@ -121,6 +149,7 @@ export const createSimulation = (
     const next = {};
     for (const field of FIELDS) next[field] = new Float64Array(total);
     const nextType = new Uint16Array(total);
+    const nextBodies = new Array(total);
     const nextGroups = new Map();
     const views = [];
     let n = 0;
@@ -132,15 +161,26 @@ export const createSimulation = (
       // aléatoire (absente ou 0) : chaque particule garde la sienne.
       const remass =
         previous && type.mass > 0 && type.mass !== previous.mass;
+      const bodies = Array.isArray(type.bodies) ? type.bodies : [];
       for (let k = 0; k < type.count; k++, n++) {
+        const body = k < bodies.length ? bodies[k] : null;
+        nextBodies[n] = body;
         if (k < kept) {
           for (const field of FIELDS) {
             next[field][n] = old.state[field][previous.start + k];
           }
           if (remass) {
-            next.mass[n] = type.mass;
-            next.radius[n] = type.mass / 2 + 2;
+            // Un corps garde sa masse et son rayon propres s'il en a.
+            if (!(body?.mass > 0)) next.mass[n] = type.mass;
+            if (!(body?.radius > 0)) next.radius[n] = next.mass[n] / 2 + 2;
           }
+        } else if (body) {
+          // Corps explicite : état donné, aucun tirage aléatoire (sauf une
+          // masse si ni le corps ni son type n'en fixent).
+          placeBody(next, n, body);
+          next.mass[n] = body.mass > 0 ? body.mass : type.mass || random() * 50;
+          next.radius[n] =
+            body.radius > 0 ? body.radius : next.mass[n] / 2 + 2;
         } else {
           // Même ordre de tirage que la version précédente (x, y, masse) ;
           // en 3D, z est tiré juste après y.
@@ -159,6 +199,7 @@ export const createSimulation = (
     });
     state = next;
     typeIndex = nextType;
+    bodyOf = nextBodies;
     groups = nextGroups;
     count = total;
     layout = types.map((t) => ({ name: t.name, count: t.count, mass: t.mass || 0 }));
@@ -175,10 +216,17 @@ export const createSimulation = (
   };
 
   // Nouveau tirage : positions au hasard, vitesses et accélérations à zéro
-  // (comme au démarrage) ; nombres, masses et règles inchangés.
+  // (comme au démarrage) ; nombres, masses et règles inchangés. Les corps
+  // explicites reprennent leur position et leur vitesse de départ (sans
+  // tirage : les autres particules reçoivent les mêmes tirages que s'ils
+  // n'existaient pas).
   const reseed = () => {
     const { x, y, z, vx, vy, vz, ax, ay, az } = state;
     for (let i = 0; i < count; i++) {
+      if (bodyOf[i]) {
+        placeBody(state, i, bodyOf[i]);
+        continue;
+      }
       x[i] = random() * width;
       y[i] = random() * height;
       if (is3d) {
