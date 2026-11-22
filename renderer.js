@@ -1,7 +1,9 @@
 import { createCamera, viewProjection } from "./camera.js";
 
 // Rendu WebGL 2 des particules : un disque par particule (dessin instancié),
-// dans l'ordre reçu (les plus massives d'abord, donc dessous). Le fond du
+// dans l'ordre reçu (les plus massives d'abord, donc dessous). En 3D, chaque
+// disque est ombré comme une sphère éclairée (normale et lumière calculées dans
+// le fragment shader, sans maillage). Le fond du
 // canevas reste transparent : on voit le fond sombre de la page, comme avant.
 
 // Même valeur que dans simulation-host.js (non importé : ce module tourne sur
@@ -23,9 +25,11 @@ uniform vec2 u_shade;
 out vec2 v_local;
 out float v_shade;
 out float v_radius;
+out float v_lit;
 out vec4 v_color;
 void main() {
   v_color = a_color;
+  v_lit = u_view3d ? 1.0 : 0.0;
   if (!u_view3d) {
     // Vue 2D (inchangée) : marge d'un pixel pour adoucir le bord du disque.
     vec2 local = a_corner * (a_radius + 1.0);
@@ -72,13 +76,26 @@ precision mediump float;
 in vec2 v_local;
 in float v_radius;
 in float v_shade;
+in float v_lit;
 in vec4 v_color;
 out vec4 outColor;
 void main() {
   float coverage = clamp(v_radius - length(v_local) + 0.5, 0.0, 1.0);
   if (coverage <= 0.0) discard;
   float alpha = v_color.a * coverage;
-  outColor = vec4(v_color.rgb * v_shade * alpha, alpha);
+  vec3 rgb = v_color.rgb * v_shade;
+  if (v_lit > 0.5) {
+    // Sphère : normale du point visible, lumière fixe venant du haut à gauche
+    // devant la scène (ombrage de Lambert, lumière ambiante, reflet discret).
+    vec2 q = v_local / max(v_radius, 0.5);
+    float r2 = min(dot(q, q), 1.0);
+    vec3 n = vec3(q, sqrt(1.0 - r2));
+    vec3 light = normalize(vec3(-0.45, 0.55, 0.7));
+    float diffuse = max(dot(n, light), 0.0);
+    float specular = pow(max(dot(reflect(-light, n), vec3(0.0, 0.0, 1.0)), 0.0), 24.0);
+    rgb = rgb * (0.18 + 0.95 * diffuse) + vec3(0.25 * specular * v_shade);
+  }
+  outColor = vec4(rgb * alpha, alpha);
 }`;
 
 // Couleur CSS (nom, #hex, rgb()...) -> [r, g, b, a] en octets, via le style
@@ -233,6 +250,10 @@ export const createRenderer = (canvas, initial) => {
     // Vrai si la vue en cours est en 3D (la page n'active l'orbite qu'alors).
     get view3d() {
       return view3d;
+    },
+    // Boîte de la vue 3D (pixels), pour les commandes de la caméra.
+    get box() {
+      return { width: canvas.width, height: canvas.height, depth };
     },
     // camera : { yaw, pitch, zoom } (camera.js), lue à chaque image.
     setCamera(value) {

@@ -448,7 +448,7 @@ export const createPanel = (
   // En tête du panneau : c'est le choix qui change le plus la simulation.
   const space = section(
     "Espace",
-    "2D : plan. 3D : volume que l'on fait tourner à la souris (glisser, molette, double-clic pour recentrer). Changer de mode relance un nouveau tirage.",
+    "2D : plan. 3D : volume que l'on fait tourner à la souris (glisser, clic droit ou deux doigts pour déplacer, molette ou pincer pour zoomer, double-clic pour recentrer). Changer de mode relance un nouveau tirage.",
     el(
       "div",
       { className: "field" },

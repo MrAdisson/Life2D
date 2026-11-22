@@ -1,0 +1,21 @@
+{
+  "title": "Amas gravitationnels en 3D",
+  "description": "Des étoiles lourdes et de la poussière légère s'attirent dans un volume, vus comme des sphères éclairées. Faites tourner, déplacez et zoomez la caméra pour voir les amas se former en profondeur.",
+  "vignette": "vignettes/amas-gravitationnels-3d.svg",
+  "settings": {
+    "dimensions": 3,
+    "depth": 700,
+    "epsilon": 10,
+    "friction": 0.995,
+    "range": 220,
+    "edges": "bounce",
+    "types": [
+      { "name": "étoile", "color": "#ffd27a", "count": 20, "mass": 40 },
+      { "name": "poussière", "color": "#8fb8ff", "count": 1500, "mass": 2 }
+    ],
+    "rules": {
+      "étoile": { "étoile": -0.4, "poussière": -0.05 },
+      "poussière": { "étoile": -0.3, "poussière": -0.05 }
+    }
+  }
+}
