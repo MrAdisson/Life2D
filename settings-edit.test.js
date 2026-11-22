@@ -9,6 +9,7 @@ import {
   needsRangeWarning,
   removeType,
   setCount,
+  setDimensions,
   setEpsilon,
   setFriction,
   setGravity,
@@ -147,4 +148,16 @@ test("avertissement : portée illimitée et au moins 5 000 particules", () => {
   delete s.range; // absente = illimitée
   setCount(s, "blue", 10000);
   assert.equal(needsRangeWarning(s), true);
+});
+
+test("setDimensions : 3 ou 2, toute autre valeur donne 2", () => {
+  const s = fresh();
+  setDimensions(s, 3);
+  assert.equal(s.dimensions, 3);
+  setDimensions(s, "3");
+  assert.equal(s.dimensions, 3);
+  setDimensions(s, 2);
+  assert.equal(s.dimensions, 2);
+  setDimensions(s, 7);
+  assert.equal(s.dimensions, 2);
 });

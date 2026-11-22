@@ -15,8 +15,9 @@ Règles :
 - Les bords `bounce` (rebond) et `wrap` (traversée) s'appliquent aussi sur z, devant et derrière, comme sur x et y.
 - La gravité reste verticale (axe y), la friction et epsilon s'appliquent de la même façon sur les trois axes.
 - Un préréglage de `presets/` peut contenir `dimensions` (2 ou 3) et `depth` ; toute autre valeur rend le fichier invalide (carte d'erreur dans la galerie).
-- `dimensions` est pris en compte au lancement : s'il change pendant la simulation, celle-ci repart d'un nouveau tirage.
+- Le panneau de réglages (section Physique) a un commutateur 2D / 3D : changer de mode relance la simulation avec un nouveau tirage des positions (vitesses à zéro). En 3D, la profondeur est celle du réglage `depth`, ou à défaut la plus petite dimension de la fenêtre.
+- Vue 3D : perspective centrée sur la fenêtre ; les particules lointaines (z grand) sont plus petites, plus sombres et passent derrière les proches. En 2D, le dessin est celui d'avant.
 
-Limites : la vue reste en 2D. Elle dessine la projection sur x et y, sans perspective ni profondeur visible (z n'est pas affiché). Aucun préréglage de la galerie n'utilise encore la 3D. Le panneau de réglages ne permet de modifier ni `dimensions` ni `depth`.
+Limites : la caméra est fixe (pas de rotation, de zoom ni de déplacement) ; pas d'éclairage ni de profondeur de champ, seulement taille et teinte selon z. Aucun préréglage de la galerie n'utilise encore la 3D (on y passe depuis le panneau) ; le panneau ne permet pas de régler `depth`. Les bords arrière (z = profondeur) et avant (z = 0) ne sont pas dessinés.
 
-Code : `engine.js`, `settings.js`, `simulation-host.js`, `renderer.js`, `presets.js`
+Code : `engine.js`, `settings.js`, `simulation-host.js`, `renderer.js`, `panel.js`, `presets.js`

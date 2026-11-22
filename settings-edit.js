@@ -98,6 +98,11 @@ export const setEdges = (settings, value) => {
   settings.edges = value === "wrap" ? "wrap" : "bounce";
 };
 
+// 2 (plan, par défaut) ou 3 (volume).
+export const setDimensions = (settings, value) => {
+  settings.dimensions = Number(value) === 3 ? 3 : 2;
+};
+
 // Ajoute un type (nom unique, couleur, nombre, masse) ; ses règles, avec les
 // autres types et avec lui-même, valent 0. Renvoie { ok: true } ou
 // { ok: false, error } (message en français).

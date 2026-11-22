@@ -168,6 +168,7 @@ test("worker : en 3D, le tampon transporte x, y, z et z évolue", () => {
   send({ type: "init", settings, width: 800, height: 600 });
   const [init, first] = sent.map((m) => m.data);
   assert.equal(init.dimensions, 3);
+  assert.equal(init.depth, 400); // la vue 3D en a besoin pour la perspective
   assert.equal(first.positions.length, 1585 * 3);
   const zOf = (p) => Array.from({ length: p.length / 3 }, (_, k) => p[3 * k + 2]);
   const z0 = zOf(first.positions);
@@ -187,6 +188,7 @@ test("worker : changer `dimensions` relance la simulation (nouvel « init »)", 
   const [init, positions] = sent.slice(-2).map((m) => m.data);
   assert.equal(init.type, "init");
   assert.equal(init.dimensions, 3);
+  assert.equal(init.depth, 600); // plus petite dimension du canevas
   assert.equal(init.generation, first.generation + 1);
   assert.equal(positions.steps, 0);
   assert.ok(positions.positions.some((v, k) => k % 3 === 2 && v !== 0));

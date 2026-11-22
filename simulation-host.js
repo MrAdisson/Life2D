@@ -67,6 +67,7 @@ export const attachSimulation = (port, { random } = {}) => {
         generation,
         count,
         dimensions: simulation.dimensions,
+        depth: simulation.depth,
         palette,
         types,
         radii,
