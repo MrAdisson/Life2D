@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countParticles, createStatsMeter, formatStats } from "./stats.js";
+import { countParticles, createStatsMeter, formatStats, formatTime } from "./stats.js";
 import { defaultSettings, referenceSettings } from "./settings.js";
 
 test("compteur : nombre de particules = somme des count du réglage", () => {
@@ -29,4 +29,13 @@ test("compteur : images et pas par seconde, mis à jour toutes les 500 ms", () =
 test("compteur : texte affiché", () => {
   const text = formatStats({ fps: 59.6, stepsPerSecond: 58.2, particles: 20000 });
   assert.match(text, /^60 images\/s · 20\s000 particules · 58 pas\/s$/);
+});
+
+test("temps simulé : au plus deux décimales, format français", () => {
+  assert.equal(formatTime(0), "0");
+  assert.equal(formatTime(1.5), "1,5");
+  assert.equal(formatTime(2 / 3), "0,67");
+  assert.equal(formatTime(NaN), "0");
+  // Séparateur des milliers (espace insécable) : seulement les chiffres.
+  assert.equal(formatTime(12345.678).replace(/\D/g, ""), "1234568");
 });

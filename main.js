@@ -74,6 +74,7 @@ const launch = (settings, { edit = false } = {}) => {
   let uploaded = false; // `received` est déjà envoyé au rendu
   let generation = 0; // description des particules en cours (voir le Worker)
   let steps = 0;
+  let time = 0; // temps simulé du dernier état reçu
   let failed = false;
   let stopped = false;
   let paused = false;
@@ -107,6 +108,7 @@ const launch = (settings, { edit = false } = {}) => {
       received = data.positions;
       uploaded = false;
       steps = data.steps;
+      time = data.time ?? 0;
     }
   };
 
@@ -130,6 +132,7 @@ const launch = (settings, { edit = false } = {}) => {
     }
     renderer.draw();
     panel.setSteps(steps);
+    panel.setTime(time);
     const stats = meter.frame(now, steps);
     if (stats) counter.textContent = formatStats({ ...stats, particles });
     requestAnimationFrame(loop);

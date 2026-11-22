@@ -2,6 +2,7 @@
 // appelle onChange() ; aucune sauvegarde. Libellés en français.
 import {
   MAX_COUNT,
+  MAX_SUBSTEPS,
   WARN_PARTICLES,
   addType,
   getRule,
@@ -20,7 +21,10 @@ import {
   setMass,
   setRange,
   setRule,
+  setSubsteps,
+  setTimeStep,
 } from "./settings-edit.js";
+import { formatTime } from "./stats.js";
 import {
   SLIDER_STEPS,
   frictionFromSlider,
@@ -87,7 +91,7 @@ const shortRule = (v) => {
 // settings : réglage modifié en place ; onChange() : à appeler après chaque
 // modification ; onReseed() : nouveau tirage ; onPause(paused), onStep() :
 // lecture ; open : panneau déplié au départ (par défaut oui). Renvoie
-// { element, setPaused, setSteps }.
+// { element, setPaused, setSteps, setTime }.
 export const createPanel = (
   parent,
   { settings, onChange, onReseed, onPause, onStep, open = true },
@@ -122,6 +126,7 @@ export const createPanel = (
   // --- Lecture ---
   const status = el("span", { className: "status", id: "status" });
   const stepCount = el("output", { id: "step-count", textContent: "0" });
+  const timeCount = el("output", { id: "sim-time", textContent: "0" });
   const pauseButton = el("button", {
     type: "button",
     id: "pause",
@@ -132,7 +137,7 @@ export const createPanel = (
     type: "button",
     id: "step",
     textContent: "⏭ Pas à pas",
-    title: "Avance d'un seul pas de calcul (disponible en pause)",
+    title: "Avance d'une seule image : les sous-pas réglés dans « Physique » (disponible en pause)",
   });
   const reseedButton = el("button", {
     type: "button",
@@ -157,13 +162,14 @@ export const createPanel = (
   syncPause();
   const playback = section(
     "Lecture",
-    "En pause, « Pas à pas » avance d'un seul pas : à faible vitesse le déplacement est minuscule, suivez le compteur de pas.",
+    "En pause, « Pas à pas » avance d'une seule image (autant de pas de temps que de sous-pas) : à faible vitesse le déplacement est minuscule, suivez le compteur de pas. Le temps simulé est la somme des pas de temps calculés ; un nouveau tirage le remet à 0.",
     el("div", { className: "row" }, pauseButton, stepButton, reseedButton),
     el(
       "div",
       { className: "row meta" },
       status,
       el("span", {}, "Pas n° ", stepCount),
+      el("span", {}, "Temps simulé ", timeCount),
     ),
   );
 
@@ -309,6 +315,40 @@ export const createPanel = (
     }
   };
 
+  // Pas de temps dt (nombre > 0) et sous-pas par image (entier).
+  const timeStep = numberInput({ id: "time-step", min: 0, value: show(settings.dt ?? 1) });
+  const timeStepError = errorLine("time-step-error");
+  timeStep.oninput = () => {
+    const result = setTimeStep(settings, timeStep.value);
+    timeStepError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${show(settings.dt ?? 1)}.`;
+    if (result.ok) changed();
+  };
+  timeStep.onchange = () => {
+    if (!(parseNumber(timeStep.value) > 0) || !Number.isFinite(parseNumber(timeStep.value))) {
+      timeStep.value = show(settings.dt ?? 1);
+    }
+  };
+  const substeps = numberInput({
+    id: "substeps",
+    min: 1,
+    max: MAX_SUBSTEPS,
+    step: 1,
+    value: String(settings.substeps ?? 1),
+  });
+  const substepsError = errorLine("substeps-error");
+  substeps.oninput = () => {
+    const result = setSubsteps(settings, substeps.value);
+    substepsError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${settings.substeps ?? 1}.`;
+    if (result.ok) changed();
+  };
+  substeps.onchange = () => {
+    substeps.value = String(settings.substeps ?? 1);
+  };
+
   const edgeButtons = [
     ["bounce", "Rebond", "La particule rebondit sur les bords du canevas"],
     ["wrap", "Traversée", "La particule ressort par le bord opposé"],
@@ -385,9 +425,23 @@ export const createPanel = (
           warning,
         ]),
     field(
+      "Pas de temps",
+      timeStep,
+      gravitation
+        ? "Temps simulé à chaque pas de calcul (1 par défaut). Plus petit : orbites plus précises, mouvement plus lent à l'écran. Plus grand : temps accéléré, moins précis (compensez avec des sous-pas). Nombre supérieur à 0."
+        : "Temps simulé à chaque pas de calcul (1 par défaut) : plus petit, le mouvement est plus lent et plus fin ; plus grand, plus rapide et plus heurté. Nombre supérieur à 0.",
+    ),
+    timeStepError,
+    field(
+      "Sous-pas par image",
+      substeps,
+      `Nombre de pas de temps calculés avant chaque image (1 par défaut) : le temps avance plus vite à l'écran sans perdre en précision, mais le calcul de chaque image est d'autant plus long. Entier de 1 à ${MAX_SUBSTEPS}.`,
+    ),
+    substepsError,
+    field(
       "Friction",
       el("div", { className: "slider" }, frictionSlider, friction),
-      "Facteur appliqué à la vitesse à chaque pas, de 0 à 1 : 1 = aucune perte, 0 = arrêt immédiat. Près de 1, chaque décimale compte (0,999 freine dix fois moins que 0,99) : le curseur est plus fin près de 0 et de 1, le champ accepte toutes les décimales (ex. 0,9995).",
+      "Facteur appliqué à la vitesse par unité de temps (à chaque pas avec un pas de temps de 1), de 0 à 1 : 1 = aucune perte, 0 = arrêt immédiat. Près de 1, chaque décimale compte (0,999 freine dix fois moins que 0,99) : le curseur est plus fin près de 0 et de 1, le champ accepte toutes les décimales (ex. 0,9995).",
     ),
     field(
       "Epsilon (px)",
@@ -400,7 +454,7 @@ export const createPanel = (
     field(
       "Gravité verticale (px/pas²)",
       el("div", { className: "slider" }, gravitySlider, gravity),
-      "Accélération constante ajoutée à chaque pas à toutes les particules, vers le bas (négative : vers le haut). 0 = aucune. Curseur : −0,2 à 0,2 ; le champ accepte toute valeur.",
+      "Accélération constante (par unité de temps², donc par pas² avec un pas de temps de 1) ajoutée à toutes les particules, vers le bas (négative : vers le haut). 0 = aucune. Curseur : −0,2 à 0,2 ; le champ accepte toute valeur.",
     ),
     gravityError,
     el(
@@ -758,6 +812,10 @@ export const createPanel = (
     setSteps(n) {
       const text = String(n);
       if (stepCount.textContent !== text) stepCount.textContent = text;
+    },
+    setTime(t) {
+      const text = formatTime(t);
+      if (timeCount.textContent !== text) timeCount.textContent = text;
     },
   };
 };
