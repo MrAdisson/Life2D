@@ -10,6 +10,12 @@
 //   range:    nombre, portée d'interaction en pixels : deux particules plus
 //             éloignées n'exercent aucune force l'une sur l'autre
 //             (Infinity ou absente : portée illimitée),
+//   dimensions: 2 (par défaut) ou 3 : espace plan ou en volume ; en 3D, les
+//             positions, vitesses, forces, la portée et les bords portent
+//             aussi sur l'axe z. Fixé au lancement de la simulation,
+//   depth:    nombre, profondeur de l'espace en pixels (3D seulement ; absente :
+//             la plus petite des dimensions du canevas), bornant z pour les
+//             bords "bounce" et "wrap",
 //   types:    [{ name, color, count, mass }],  // mass absente ou 0 : masse aléatoire (0-50)
 //   rules:    { [nomDuType]: { [nomDeLAutreType]: g } },
 // }

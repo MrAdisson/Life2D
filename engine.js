@@ -6,7 +6,9 @@
 // Les particules sont numérotées type par type, dans l'ordre de settings.types.
 // Les objets de `particles` et `groups` sont des vues sur ces tableaux.
 
-const FIELDS = ["x", "y", "vx", "vy", "ax", "ay", "mass", "radius"];
+const FIELDS = [
+  "x", "y", "z", "vx", "vy", "vz", "ax", "ay", "az", "mass", "radius",
+];
 
 // Cases de la grille : côté = portée / CELLS_PER_RANGE (des cases plus petites
 // que la portée réduisent le nombre de paires examinées).
@@ -36,16 +38,33 @@ for (const field of FIELDS) {
 }
 
 // settings : réglage ; width/height : dimensions de l'espace ;
+// depth : profondeur de l'espace en 3D si le réglage n'a pas de `depth`
+// (par défaut : la plus petite de width et height) ;
 // random : générateur [0,1[ (Math.random par défaut, injectable pour les tests).
 //
 // Le réglage est lu par référence : friction, portée, bords, epsilon, gravité
 // et règles sont relus à chaque pas, donc modifiables en cours de simulation.
 // Les types, leurs nombres et leurs masses sont pris en compte par sync() (à
 // appeler après les avoir modifiés) ; reseed() tire de nouvelles positions.
+//
+// settings.dimensions (2 par défaut, ou 3) est lu une fois, à la création. En
+// 2D, z, vz et az restent à 0 et le calcul est exactement celui d'avant l'axe z
+// (même code, mêmes tirages aléatoires) ; en 3D, la distance, la grille et les
+// bords portent sur les trois axes, la profondeur (settings.depth, relue à
+// chaque pas) bornant z.
+export const dimensionsOf = (settings) => (settings.dimensions === 3 ? 3 : 2);
+
 export const createSimulation = (
   settings,
-  { width, height, random = Math.random },
+  { width, height, depth: defaultDepth, random = Math.random },
 ) => {
+  const is3d = dimensionsOf(settings) === 3;
+  const fallbackDepth = defaultDepth ?? Math.min(width, height);
+  const readDepth = () =>
+    settings.depth > 0 && Number.isFinite(settings.depth)
+      ? settings.depth
+      : fallbackDepth;
+  let depth = readDepth();
   let count = 0;
   let state = {};
   for (const field of FIELDS) state[field] = new Float64Array(0);
@@ -57,7 +76,7 @@ export const createSimulation = (
   let layout = [];
 
   // Grille et coefficients (réalloués quand la taille change).
-  let cellOf, cellItems, cellX, cellY, cellType;
+  let cellOf, cellItems, cellX, cellY, cellZ, cellType;
   let cellStart = new Uint32Array(0);
   let cellCursor = new Uint32Array(0);
   let T = 0;
@@ -66,6 +85,7 @@ export const createSimulation = (
   let range2 = Infinity;
   let cols = 1;
   let rows = 1;
+  let layers = 1;
   let reach = 0;
   let inv = 0;
   let epsilon = settings.epsilon;
@@ -122,9 +142,11 @@ export const createSimulation = (
             next.radius[n] = type.mass / 2 + 2;
           }
         } else {
-          // Même ordre de tirage que la version précédente (x, y, masse).
+          // Même ordre de tirage que la version précédente (x, y, masse) ;
+          // en 3D, z est tiré juste après y.
           next.x[n] = random() * width;
           next.y[n] = random() * height;
+          if (is3d) next.z[n] = random() * depth;
           next.mass[n] = type.mass || random() * 50;
           next.radius[n] = next.mass[n] / 2 + 2;
         }
@@ -147,6 +169,7 @@ export const createSimulation = (
     cellItems = new Uint32Array(count);
     cellX = new Float64Array(count);
     cellY = new Float64Array(count);
+    cellZ = is3d ? new Float64Array(count) : null;
     cellType = new Uint32Array(count);
     return true;
   };
@@ -154,10 +177,14 @@ export const createSimulation = (
   // Nouveau tirage : positions au hasard, vitesses et accélérations à zéro
   // (comme au démarrage) ; nombres, masses et règles inchangés.
   const reseed = () => {
-    const { x, y, vx, vy, ax, ay } = state;
+    const { x, y, z, vx, vy, vz, ax, ay, az } = state;
     for (let i = 0; i < count; i++) {
       x[i] = random() * width;
       y[i] = random() * height;
+      if (is3d) {
+        z[i] = random() * depth;
+        vz[i] = az[i] = 0;
+      }
       vx[i] = vy[i] = ax[i] = ay[i] = 0;
     }
   };
@@ -179,19 +206,33 @@ export const createSimulation = (
       }
     }
     // Grille spatiale : toute paire dans la portée est séparée d'au plus
-    // `reach` cases sur chaque axe.
-    let cellSize = Math.max(
-      range / CELLS_PER_RANGE,
-      Math.sqrt((width * height) / MAX_CELLS),
-    );
+    // `reach` cases sur chaque axe. Portée illimitée : une seule case (toutes
+    // les paires sont examinées).
+    let cellSize;
+    if (is3d) {
+      depth = readDepth();
+      cellSize = Math.max(
+        range / CELLS_PER_RANGE,
+        Math.cbrt((width * height * depth) / MAX_CELLS),
+      );
+    } else {
+      cellSize = Math.max(
+        range / CELLS_PER_RANGE,
+        Math.sqrt((width * height) / MAX_CELLS),
+      );
+    }
     if (!(cellSize > 0)) cellSize = Infinity;
     cols = Math.max(1, Math.min(MAX_CELLS, Math.ceil(width / cellSize)));
     rows = Math.max(1, Math.min(MAX_CELLS, Math.ceil(height / cellSize)));
+    layers = is3d
+      ? Math.max(1, Math.min(MAX_CELLS, Math.ceil(depth / cellSize)))
+      : 1;
     reach = Number.isFinite(cellSize) ? Math.ceil(range / cellSize) : 0;
     inv = 1 / cellSize;
-    if (cellStart.length !== cols * rows + 1) {
-      cellStart = new Uint32Array(cols * rows + 1);
-      cellCursor = new Uint32Array(cols * rows);
+    const cells = cols * rows * layers;
+    if (cellStart.length !== cells + 1) {
+      cellStart = new Uint32Array(cells + 1);
+      cellCursor = new Uint32Array(cells);
     }
   };
 
@@ -299,19 +340,151 @@ export const createSimulation = (
     }
   };
 
-  const step = () => {
-    prepare();
-    applyForces();
-    update();
+  // --- 3D : mêmes calculs avec l'axe z (code séparé : le chemin 2D reste
+  // inchangé, au bit près et en temps de calcul). ---
+
+  const fillGrid3d = () => {
+    const { x, y, z } = state;
+    const cells = cols * rows * layers;
+    cellStart.fill(0);
+    for (let i = 0; i < count; i++) {
+      const c =
+        (cellCoord(z[i], layers) * rows + cellCoord(y[i], rows)) * cols +
+        cellCoord(x[i], cols);
+      cellOf[i] = c;
+      cellStart[c + 1]++;
+    }
+    for (let c = 0; c < cells; c++) cellStart[c + 1] += cellStart[c];
+    cellCursor.set(cellStart.subarray(0, cells));
+    for (let i = 0; i < count; i++) {
+      const s = cellCursor[cellOf[i]]++;
+      cellItems[s] = i;
+      cellX[s] = x[i];
+      cellY[s] = y[i];
+      cellZ[s] = z[i];
+      cellType[s] = typeIndex[i];
+    }
   };
 
-  // Copie les positions dans l'ordre d'affichage : [x0, y0, x1, y1, ...].
-  const writePositions = (target = new Float32Array(count * 2)) => {
-    const { x, y } = state;
-    for (let k = 0; k < count; k++) {
-      const i = drawOrder[k];
-      target[2 * k] = x[i];
-      target[2 * k + 1] = y[i];
+  const applyForces3d = () => {
+    const { x, y, z, ax, ay, az, mass } = state;
+    fillGrid3d();
+    const plane = cols * rows;
+    for (let j = 0; j < count; j++) {
+      const xj = x[j];
+      const yj = y[j];
+      const zj = z[j];
+      const mj = mass[j];
+      const gRow = typeIndex[j] * T;
+      const cj = cellOf[j];
+      const cx = cj % cols;
+      const cyz = (cj - cx) / cols;
+      const cy = cyz % rows;
+      const cz = (cyz - cy) / rows;
+      const c0 = cx > reach ? cx - reach : 0;
+      const c1 = cx + reach < cols ? cx + reach : cols - 1;
+      const r0 = cy > reach ? cy - reach : 0;
+      const r1 = cy + reach < rows ? cy + reach : rows - 1;
+      const l0 = cz > reach ? cz - reach : 0;
+      const l1 = cz + reach < layers ? cz + reach : layers - 1;
+      for (let l = l0; l <= l1; l++) {
+        for (let r = r0; r <= r1; r++) {
+          const base = l * plane + r * cols;
+          const end = cellStart[base + c1 + 1];
+          for (let s = cellStart[base + c0]; s < end; s++) {
+            const dx = cellX[s] - xj;
+            const dy = cellY[s] - yj;
+            const dz = cellZ[s] - zj;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > range2) continue;
+            const g = GT[gRow + cellType[s]];
+            if (g === 0) continue;
+            const i = cellItems[s];
+            if (i === j) continue;
+            const mi = mass[i];
+            const distance = Math.sqrt(d2) + epsilon;
+            const force = (g * mi * mj) / distance ** 2;
+            ax[i] += (force * dx) / distance / mi;
+            ay[i] += (force * dy) / distance / mi;
+            az[i] += (force * dz) / distance / mi;
+          }
+        }
+      }
+    }
+  };
+
+  const update3d = () => {
+    const { x, y, z, vx, vy, vz, ax, ay, az, radius } = state;
+    const f = settings.friction;
+    const friction = f >= 0 ? (f <= 1 ? f : 1) : f < 0 ? 0 : 1;
+    const gravity = Number.isFinite(settings.gravity) ? settings.gravity : 0;
+    const wrap = settings.edges === "wrap";
+    for (let i = 0; i < count; i++) {
+      const r = radius[i];
+      if (!wrap) {
+        if (x[i] + r > width || x[i] - r < 0) {
+          vx[i] = -vx[i];
+          ax[i] = -ax[i];
+        }
+        if (y[i] - r < 0 || y[i] + r > height) {
+          vy[i] = -vy[i];
+          ay[i] = -ay[i];
+        }
+        if (z[i] - r < 0 || z[i] + r > depth) {
+          vz[i] = -vz[i];
+          az[i] = -az[i];
+        }
+      }
+      vx[i] += ax[i];
+      vy[i] += ay[i];
+      vz[i] += az[i];
+      if (gravity !== 0) vy[i] += gravity;
+      x[i] += vx[i];
+      y[i] += vy[i];
+      z[i] += vz[i];
+      if (wrap) {
+        x[i] = ((x[i] % width) + width) % width;
+        y[i] = ((y[i] % height) + height) % height;
+        z[i] = ((z[i] % depth) + depth) % depth;
+      }
+      vx[i] *= friction;
+      vy[i] *= friction;
+      vz[i] *= friction;
+      ax[i] = 0;
+      ay[i] = 0;
+      az[i] = 0;
+    }
+  };
+
+  const step = () => {
+    prepare();
+    if (is3d) {
+      applyForces3d();
+      update3d();
+    } else {
+      applyForces();
+      update();
+    }
+  };
+
+  // Copie les positions dans l'ordre d'affichage : [x0, y0, x1, y1, ...]
+  // (stride 2) ou [x0, y0, z0, x1, y1, z1, ...] (stride 3 ; z = 0 en 2D).
+  const writePositions = (target, stride = 2) => {
+    target ??= new Float32Array(count * stride);
+    const { x, y, z } = state;
+    if (stride === 3) {
+      for (let k = 0; k < count; k++) {
+        const i = drawOrder[k];
+        target[3 * k] = x[i];
+        target[3 * k + 1] = y[i];
+        target[3 * k + 2] = z[i];
+      }
+    } else {
+      for (let k = 0; k < count; k++) {
+        const i = drawOrder[k];
+        target[2 * k] = x[i];
+        target[2 * k + 1] = y[i];
+      }
     }
     return target;
   };
@@ -325,6 +498,12 @@ export const createSimulation = (
     },
     get range() {
       return range;
+    },
+    get dimensions() {
+      return is3d ? 3 : 2;
+    },
+    get depth() {
+      return is3d ? depth : 0;
     },
     get state() {
       return state;
