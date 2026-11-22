@@ -113,5 +113,5 @@ test("déplacement latéral : la boîte suit le glisser, la réinitialisation le
   pan(camera, 1e7, 0, box);
   assert.ok(camera.panX <= 800);
   resetCamera(camera);
-  assert.deepEqual(camera, { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0 });
+  assert.deepEqual(camera, { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, follow: null, target: null });
 });

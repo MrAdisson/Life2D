@@ -39,7 +39,10 @@
 //             bords "bounce" et "wrap",
 //   types:    [{ name, color, count, mass, bodies }],  // mass absente ou 0 : masse aléatoire (0-50)
 //             bodies (facultatif) : corps placés à un état exact,
-//             [{ name, position: [x, y, z], velocity: [vx, vy, vz], mass, radius }]
+//             [{ name, position: [x, y, z], velocity: [vx, vy, vz], mass, radius,
+//             label, sizeFactor, emissive }] (affichage 3D : label false masque
+//             l'étiquette ; sizeFactor > 0 multiplie le rayon d'affichage de ce
+//             corps en plus du facteur global `display.sizeFactor`)
 //             (name, mass et radius facultatifs ; z et vz facultatifs, ignorés
 //             en 2D). Les `bodies.length` premières particules du type sont
 //             ces corps (count >= bodies.length dans un préréglage) ; les

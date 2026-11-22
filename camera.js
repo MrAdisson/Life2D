@@ -14,7 +14,18 @@ export const MAX_ZOOM = 5;
 // Radians par pixel glissé.
 export const ORBIT_SPEED = 0.01;
 
-export const createCamera = () => ({ yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0 });
+// follow : indice (ordre d'affichage) du corps suivi, ou null ; target : point
+// [x, y, z] autour duquel la caméra tourne (le corps suivi), ou null = centre
+// de la boîte. Le rendu renseigne target à chaque image.
+export const createCamera = () => ({
+  yaw: 0,
+  pitch: 0,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  follow: null,
+  target: null,
+});
 
 export const resetCamera = (camera) => {
   camera.yaw = 0;
@@ -22,6 +33,8 @@ export const resetCamera = (camera) => {
   camera.zoom = 1;
   camera.panX = 0;
   camera.panY = 0;
+  camera.follow = null;
+  camera.target = null;
   return camera;
 };
 
@@ -94,10 +107,12 @@ export const viewProjection = (camera, { width, height, depth }) => {
     [-cp * sy, sp, cp * cy],
   ];
   // Affine A : p = A·(x, y, z, 1).
+  // Centre de rotation : le corps suivi, sinon le centre de la boîte.
+  const [tx, ty, tz] = camera.target ?? [width / 2, height / 2, depth / 2];
   const A = [
-    [1, 0, 0, -width / 2],
-    [0, -1, 0, height / 2],
-    [0, 0, 1, -depth / 2],
+    [1, 0, 0, -tx],
+    [0, -1, 0, ty],
+    [0, 0, 1, -tz],
   ];
   // V = R·A + (0, 0, distance).
   const V = R.map((row, i) =>
@@ -118,12 +133,20 @@ export const viewProjection = (camera, { width, height, depth }) => {
     V[2].map((v, k) => v * a + (k === 3 ? b : 0)),
     V[2],
   ];
+  // Matrice de vue seule (position -> repère de la caméra : x droite, y haut,
+  // z vers le fond), pour l'éclairage.
+  const view = new Float32Array(16);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 3; r++) view[c * 4 + r] = V[r][c];
+  }
+  view[15] = 1;
   const matrix = new Float32Array(16);
   for (let c = 0; c < 4; c++) {
     for (let r = 0; r < 4; r++) matrix[c * 4 + r] = rows[r][c];
   }
   return {
     matrix,
+    view,
     focal: (FOCAL * height) / 2,
     near,
     far,

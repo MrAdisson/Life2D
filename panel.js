@@ -24,9 +24,22 @@ import {
   setSpeed,
   setSubsteps,
   setTimeStep,
+  totalParticles,
 } from "./settings-edit.js";
 import { MAX_SUBSTEPS as SUBSTEPS_CAP, frameSteps } from "./engine.js";
 import { formatTime } from "./stats.js";
+import {
+  MAX_SIZE_FACTOR,
+  MAX_TRAIL_LENGTH,
+  MIN_SIZE_FACTOR,
+  MIN_TRAIL_LENGTH,
+  TRAIL_MAX_BODIES,
+  displayOf,
+  setDisplayFlag,
+  setSizeFactor,
+  setTrailLength,
+  trailsAvailable,
+} from "./display.js";
 import {
   SLIDER_STEPS,
   frictionFromSlider,
@@ -98,7 +111,7 @@ const shortRule = (v) => {
 // { element, setPaused, setSteps, setTime }.
 export const createPanel = (
   parent,
-  { settings, onChange, onReseed, onPause, onStep, open = true },
+  { settings, onChange, onReseed, onPause, onStep, onFollow, open = true },
 ) => {
   let paused = false;
   const root = el("aside", { className: "panel", id: "settings-panel" });
@@ -123,6 +136,7 @@ export const createPanel = (
 
   // Toute modification : avertissement de performance à jour, puis envoi.
   const changed = () => {
+    syncDisplay();
     syncWarning();
     syncSpeedWarning();
     onChange();
@@ -456,6 +470,125 @@ export const createPanel = (
       el("div", { className: "segmented" }, ...dimensionButtons),
     ),
   );
+  // --- Rendu des astres (3D seulement) ---
+  const displayNow = () => displayOf(settings);
+  const sizeInput = numberInput({
+    id: "size-factor",
+    min: MIN_SIZE_FACTOR,
+    max: MAX_SIZE_FACTOR,
+    value: show(displayNow().sizeFactor),
+  });
+  sizeInput.setAttribute("aria-label", "Facteur de taille des corps");
+  const sizeSlider = el("input", {
+    type: "range",
+    id: "size-slider",
+    min: Math.log10(0.1),
+    max: Math.log10(10),
+    step: 0.01,
+    value: Math.log10(Math.min(10, Math.max(0.1, displayNow().sizeFactor))),
+  });
+  sizeSlider.setAttribute("aria-label", "Curseur du facteur de taille (échelle logarithmique, 0,1 à 10)");
+  const sizeError = errorLine("size-error");
+  sizeInput.oninput = () => {
+    const result = setSizeFactor(settings, sizeInput.value);
+    sizeError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${show(displayNow().sizeFactor)}.`;
+    if (!result.ok) return;
+    sizeSlider.value = Math.log10(Math.min(10, Math.max(0.1, displayNow().sizeFactor)));
+    changed();
+  };
+  sizeInput.onchange = () => {
+    sizeInput.value = show(displayNow().sizeFactor);
+    sizeError.textContent = "";
+  };
+  sizeSlider.oninput = () => {
+    setSizeFactor(settings, Number((10 ** Number(sizeSlider.value)).toPrecision(3)));
+    sizeInput.value = show(displayNow().sizeFactor);
+    sizeError.textContent = "";
+    changed();
+  };
+  const checkbox = (id, label, flag) => {
+    const input = el("input", { type: "checkbox", id });
+    input.checked = displayNow()[flag];
+    input.onchange = () => {
+      setDisplayFlag(settings, flag, input.checked);
+      changed();
+    };
+    return { input, row: el("label", { className: "check" }, input, el("span", { textContent: label })) };
+  };
+  const trailsBox = checkbox("trails", "Traînées d'orbite", "trails");
+  const labelsBox = checkbox("labels", "Étiquettes (noms des corps)", "labels");
+  const trailLength = numberInput({
+    id: "trail-length",
+    min: MIN_TRAIL_LENGTH,
+    max: MAX_TRAIL_LENGTH,
+    step: 1,
+    value: displayNow().trailLength,
+  });
+  trailLength.setAttribute("aria-label", "Longueur des traînées (positions gardées)");
+  const trailError = errorLine("trail-error");
+  trailLength.oninput = () => {
+    const result = setTrailLength(settings, trailLength.value);
+    trailError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${displayNow().trailLength}.`;
+    if (result.ok) changed();
+  };
+  trailLength.onchange = () => {
+    trailLength.value = displayNow().trailLength;
+    trailError.textContent = "";
+  };
+  const trailNote = el("p", { className: "help", id: "trail-note" });
+  const followSelect = el("select", { id: "follow" });
+  followSelect.setAttribute("aria-label", "Corps suivi par la caméra");
+  followSelect.onchange = () => {
+    onFollow?.(followSelect.value === "" ? null : Number(followSelect.value));
+  };
+  let bodyNames = [];
+  let followed = null;
+  const renderFollow = () => {
+    followSelect.replaceChildren(el("option", { value: "", textContent: "Aucun (centre de la boîte)" }));
+    bodyNames.forEach((name, k) => {
+      if (name) followSelect.append(el("option", { value: String(k), textContent: name }));
+    });
+    followSelect.value = followed === null ? "" : String(followed);
+    if (followSelect.value !== (followed === null ? "" : String(followed))) followSelect.value = "";
+    followField.hidden = !bodyNames.some(Boolean);
+  };
+  const followField = field(
+    "Suivre un corps",
+    followSelect,
+    "La caméra se recentre sur le corps choisi et tourne autour de lui ; on peut aussi cliquer sur un corps nommé. Double-clic ou « 0 » : retour à la vue de face.",
+  );
+  const syncDisplay = () => {
+    const three = settings.dimensions === 3;
+    rendering.hidden = !three;
+    const available = trailsAvailable(totalParticles(settings));
+    trailsBox.input.disabled = !available;
+    trailLength.disabled = !available;
+    trailNote.textContent = available
+      ? "Les dernières positions de chaque corps, de plus en plus pâles vers le passé."
+      : `Traînées indisponibles : plus de ${TRAIL_MAX_BODIES} particules (réservées aux préréglages à peu de corps).`;
+  };
+  const rendering = section(
+    "Rendu des astres",
+    "Affichage seulement, la physique n'est pas touchée. Vue 3D uniquement.",
+    field(
+      "Taille des corps (×)",
+      el("div", { className: "slider" }, sizeSlider, sizeInput),
+      "Facteur global sur le rayon d'affichage de tous les corps (1 = rayons du préréglage). Curseur : 0,1× à 10× ; le champ accepte de 0,05 à 100.",
+    ),
+    sizeError,
+    trailsBox.row,
+    field("Longueur des traînées", trailLength, "Nombre de dernières positions gardées par corps (2 à 500)."),
+    trailError,
+    trailNote,
+    labelsBox.row,
+    followField,
+  );
+  syncDisplay();
+  renderFollow();
   const physics = section(
     "Physique",
     "Appliqué dès le pas suivant, sans réinitialiser les particules. Chaque curseur a un champ pour la valeur exacte.",
@@ -852,7 +985,7 @@ export const createPanel = (
 
   render();
   syncWarning();
-  body.append(space, playback, physics, types, matrix, adder);
+  body.append(space, playback, physics, rendering, types, matrix, adder);
   root.append(toggle, body);
   parent.appendChild(root);
 
@@ -867,6 +1000,17 @@ export const createPanel = (
     setPaused(value) {
       paused = value;
       syncPause();
+    },
+    // Corps nommés (ordre d'affichage) et corps suivi (indice ou null).
+    setBodies(names, follow) {
+      bodyNames = names;
+      followed = follow;
+      renderFollow();
+    },
+    setFollow(follow) {
+      if (follow === followed) return;
+      followed = follow;
+      followSelect.value = follow === null ? "" : String(follow);
     },
     setSteps(n) {
       const text = String(n);
