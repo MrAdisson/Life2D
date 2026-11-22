@@ -1,5 +1,6 @@
 // Garde-fou de performance : un pas du moteur à 10 000 particules, portée
-// finie, doit tenir dans le budget. Fait partie de `npm test`.
+// finie, doit tenir dans le budget ; en mode gravité, un pas à 200 corps.
+// Fait partie de `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createSimulation } from "./engine.js";
@@ -41,5 +42,41 @@ test(`un pas à ${PARTICLES} particules (portée finie) tient en moins de ${STEP
   assert.ok(
     median < STEP_BUDGET_MS,
     `pas médian ${median.toFixed(1)} ms > budget ${STEP_BUDGET_MS} ms`,
+  );
+});
+
+// Mode gravitation universelle : calcul direct sur toutes les paires, prévu
+// pour un petit nombre de corps. Budget : un pas à 200 corps en 3D.
+export const GRAVITY_STEP_BUDGET_MS = 5;
+const BODIES = 200;
+
+test(`gravité : un pas à ${BODIES} corps (toutes les paires) tient en moins de ${GRAVITY_STEP_BUDGET_MS} ms`, () => {
+  let seed = 3;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const settings = {
+    interaction: "gravity",
+    G: 1,
+    epsilon: 1,
+    friction: 1,
+    dimensions: 3,
+    types: [
+      { name: "soleil", color: "yellow", count: 1, mass: 1000 },
+      { name: "corps", color: "white", count: BODIES - 1, mass: 1 },
+    ],
+  };
+  const sim = createSimulation(settings, { width: 1920, height: 1080, depth: 1000, random });
+  assert.equal(sim.count, BODIES);
+  for (let k = 0; k < 20; k++) sim.step();
+  const times = [];
+  for (let k = 0; k < 21; k++) {
+    const t0 = performance.now();
+    sim.step();
+    times.push(performance.now() - t0);
+  }
+  times.sort((a, b) => a - b);
+  const median = times[Math.floor(times.length / 2)];
+  assert.ok(
+    median < GRAVITY_STEP_BUDGET_MS,
+    `pas médian ${median.toFixed(3)} ms > budget ${GRAVITY_STEP_BUDGET_MS} ms`,
   );
 });

@@ -56,10 +56,21 @@ for (const field of FIELDS) {
 // velocity, mass, radius }], voir settings.js) ; ses premières particules
 // prennent cet état exact au lieu d'un tirage. En 2D, la composante z donnée
 // est ignorée (z et vz restent à 0) ; un tableau de deux nombres donne z = 0.
+//
+// settings.interaction (relu à chaque pas) : "rules" (par défaut) applique la
+// matrice de règles dans la portée (grille spatiale) ; "gravity" applique la
+// gravitation universelle G·mi·mj/(d² + ε²) entre toutes les paires (G =
+// settings.G, 1 par défaut ; ε = settings.epsilon), sans portée ni règles. À
+// ne pas confondre avec settings.gravity (accélération verticale constante),
+// qui s'applique dans les deux modes.
 const component = (values, k) => {
   const v = Array.isArray(values) ? values[k] : undefined;
   return Number.isFinite(v) ? v : 0;
 };
+
+// "gravity" : gravitation universelle entre tous les corps ; sinon "rules".
+export const interactionOf = (settings) =>
+  settings.interaction === "gravity" ? "gravity" : "rules";
 
 export const dimensionsOf = (settings) => (settings.dimensions === 3 ? 3 : 2);
 
@@ -114,6 +125,10 @@ export const createSimulation = (
   let reach = 0;
   let inv = 0;
   let epsilon = settings.epsilon;
+  // Mode d'interaction : "rules" (matrice de règles, par défaut) ou
+  // "gravity" (gravitation universelle entre tous les corps), relu à chaque pas.
+  let gravityMode = false;
+  let G = 1;
 
   const sameLayout = () =>
     layout.length === settings.types.length &&
@@ -241,6 +256,14 @@ export const createSimulation = (
   const prepare = () => {
     const { types, rules = {} } = settings;
     epsilon = settings.epsilon;
+    gravityMode = interactionOf(settings) === "gravity";
+    if (gravityMode) {
+      // Gravitation : portée illimitée, pas de règles ni de grille.
+      G = Number.isFinite(settings.G) ? settings.G : 1;
+      epsilon = epsilon >= 0 && Number.isFinite(epsilon) ? epsilon : 0;
+      range = range2 = Infinity;
+      return;
+    }
     range = settings.range ?? Infinity;
     if (!(range >= 0)) range = Infinity;
     range2 = range * range;
@@ -504,9 +527,52 @@ export const createSimulation = (
     }
   };
 
+  // --- Gravitation universelle (interaction: "gravity") ---
+  // Calcul direct sur toutes les paires (n(n-1)/2), prévu pour quelques
+  // centaines de corps au plus. Accélération de i due à j :
+  // G·mj·(rj − ri) / (d² + ε²)^(3/2), toujours attractive (adoucissement
+  // quadratique : pas de singularité quand d → 0, loi en 1/d² dès que d ≫ ε).
+  // En 2D, z vaut 0 partout : dz = 0 et az reste à 0.
+  const applyGravity = () => {
+    const { x, y, z, ax, ay, az, mass } = state;
+    const eps2 = epsilon * epsilon;
+    for (let i = 0; i < count; i++) {
+      const xi = x[i];
+      const yi = y[i];
+      const zi = z[i];
+      const mi = mass[i];
+      let axi = 0;
+      let ayi = 0;
+      let azi = 0;
+      for (let j = i + 1; j < count; j++) {
+        const dx = x[j] - xi;
+        const dy = y[j] - yi;
+        const dz = z[j] - zi;
+        const s2 = dx * dx + dy * dy + dz * dz + eps2;
+        if (!(s2 > 0)) continue; // corps confondus sans adoucissement
+        const k = G / (s2 * Math.sqrt(s2));
+        const kj = k * mass[j];
+        const ki = k * mi;
+        axi += kj * dx;
+        ayi += kj * dy;
+        azi += kj * dz;
+        ax[j] -= ki * dx;
+        ay[j] -= ki * dy;
+        az[j] -= ki * dz;
+      }
+      ax[i] += axi;
+      ay[i] += ayi;
+      az[i] += azi;
+    }
+  };
+
   const step = () => {
     prepare();
-    if (is3d) {
+    if (gravityMode) {
+      applyGravity();
+      if (is3d) update3d();
+      else update();
+    } else if (is3d) {
       applyForces3d();
       update3d();
     } else {
