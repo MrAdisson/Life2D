@@ -58,3 +58,25 @@ test("curseur de portée : logarithmique, illimitée en butée", () => {
   const k = sliderFromRange(60);
   assert.ok(Math.abs(rangeFromSlider(k) - 60) <= 2);
 });
+
+import { SPEED_MAX, SPEED_MIN, sliderFromSpeed, speedFromSlider } from "./scales.js";
+
+test("curseur de vitesse : 0,1× à 1000×, logarithmique, croissant", () => {
+  assert.equal(speedFromSlider(0), SPEED_MIN);
+  assert.equal(speedFromSlider(SLIDER_STEPS), SPEED_MAX);
+  assert.equal(speedFromSlider(SLIDER_STEPS / 4), 1);
+  assert.equal(speedFromSlider(SLIDER_STEPS / 2), 10);
+  const values = positions.map(speedFromSlider);
+  for (let k = 1; k < values.length; k++) assert.ok(values[k] >= values[k - 1]);
+  assert.equal(speedFromSlider(-5), SPEED_MIN);
+  assert.equal(speedFromSlider(SLIDER_STEPS * 2), SPEED_MAX);
+});
+
+test("curseur de vitesse : position réciproque, bornée", () => {
+  assert.equal(sliderFromSpeed(1), SLIDER_STEPS / 4);
+  assert.equal(sliderFromSpeed(0.001), 0);
+  assert.equal(sliderFromSpeed(1e6), SLIDER_STEPS);
+  for (const k of [0, 100, 250, 500, 777, 1000]) {
+    assert.ok(Math.abs(sliderFromSpeed(speedFromSlider(k)) - k) <= 3);
+  }
+});

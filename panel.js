@@ -21,14 +21,18 @@ import {
   setMass,
   setRange,
   setRule,
+  setSpeed,
   setSubsteps,
   setTimeStep,
 } from "./settings-edit.js";
+import { MAX_SUBSTEPS as SUBSTEPS_CAP, frameSteps } from "./engine.js";
 import { formatTime } from "./stats.js";
 import {
   SLIDER_STEPS,
   frictionFromSlider,
   rangeFromSlider,
+  speedFromSlider,
+  sliderFromSpeed,
   tidy,
   sliderFromFriction,
   sliderFromRange,
@@ -120,6 +124,7 @@ export const createPanel = (
   // Toute modification : avertissement de performance à jour, puis envoi.
   const changed = () => {
     syncWarning();
+    syncSpeedWarning();
     onChange();
   };
 
@@ -349,6 +354,53 @@ export const createPanel = (
     substeps.value = String(settings.substeps ?? 1);
   };
 
+  // Vitesse de simulation : curseur logarithmique + champ exact.
+  const speed = numberInput({ id: "speed", min: 0, value: show(settings.speed ?? 1) });
+  speed.setAttribute("aria-label", "Vitesse de simulation exacte (multiplicateur)");
+  const speedSlider = el("input", {
+    type: "range",
+    id: "speed-slider",
+    min: 0,
+    max: SLIDER_STEPS,
+    step: 1,
+    value: sliderFromSpeed(settings.speed ?? 1),
+  });
+  speedSlider.setAttribute("aria-label", "Curseur de vitesse (échelle logarithmique)");
+  const speedError = errorLine("speed-error");
+  const speedWarning = el("p", { className: "warning", id: "speed-warning" });
+  speedWarning.setAttribute("role", "status");
+  const syncSpeedWarning = () => {
+    const f = frameSteps(settings);
+    speedWarning.hidden = !f.limited;
+    if (f.limited) {
+      speedWarning.textContent = `⚠ Vitesse demandée non atteinte : plafond de ${SUBSTEPS_CAP} sous-pas par image, vitesse obtenue ≈ ${show(Number(f.achieved.toPrecision(3)))}× au lieu de ${show(f.requested)}×. Réduisez la vitesse ou les sous-pas par image.`;
+    }
+  };
+  syncSpeedWarning();
+  speed.oninput = () => {
+    const result = setSpeed(settings, speed.value);
+    speedError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${show(settings.speed ?? 1)}.`;
+    if (result.ok) {
+      speedSlider.value = sliderFromSpeed(settings.speed);
+      syncSpeedWarning();
+      changed();
+    }
+  };
+  speed.onchange = () => {
+    if (!(parseNumber(speed.value) > 0) || !Number.isFinite(parseNumber(speed.value))) {
+      speed.value = show(settings.speed ?? 1);
+    }
+  };
+  speedSlider.oninput = () => {
+    setSpeed(settings, speedFromSlider(Number(speedSlider.value)));
+    speed.value = show(settings.speed);
+    speedError.textContent = "";
+    syncSpeedWarning();
+    changed();
+  };
+
   const edgeButtons = [
     ["bounce", "Rebond", "La particule rebondit sur les bords du canevas"],
     ["wrap", "Traversée", "La particule ressort par le bord opposé"],
@@ -425,7 +477,14 @@ export const createPanel = (
           warning,
         ]),
     field(
-      "Pas de temps",
+      "Vitesse de simulation (×)",
+      el("div", { className: "slider" }, speedSlider, speed),
+      "Multiplicateur du temps simulé par seconde réelle (1 par défaut). Le calcul ajoute des sous-pas (jusqu'à " + MAX_SUBSTEPS + " par image) : 2× fait avancer le temps deux fois plus vite sans perdre en précision. Curseur : 0,1× à 1000× ; le champ accepte toute valeur > 0. Les réglages avancés ci-dessous (pas de temps, sous-pas) donnent la base à vitesse 1.",
+    ),
+    speedError,
+    speedWarning,
+    field(
+      "Pas de temps (avancé, vitesse 1)",
       timeStep,
       gravitation
         ? "Temps simulé à chaque pas de calcul (1 par défaut). Plus petit : orbites plus précises, mouvement plus lent à l'écran. Plus grand : temps accéléré, moins précis (compensez avec des sous-pas). Nombre supérieur à 0."
@@ -433,7 +492,7 @@ export const createPanel = (
     ),
     timeStepError,
     field(
-      "Sous-pas par image",
+      "Sous-pas par image (avancé, vitesse 1)",
       substeps,
       `Nombre de pas de temps calculés avant chaque image (1 par défaut) : le temps avance plus vite à l'écran sans perdre en précision, mais le calcul de chaque image est d'autant plus long. Entier de 1 à ${MAX_SUBSTEPS}.`,
     ),
@@ -814,7 +873,7 @@ export const createPanel = (
       if (stepCount.textContent !== text) stepCount.textContent = text;
     },
     setTime(t) {
-      const text = formatTime(t);
+      const text = formatTime(t, settings.timeUnit);
       if (timeCount.textContent !== text) timeCount.textContent = text;
     },
   };

@@ -131,6 +131,17 @@ export const setSubsteps = (settings, value) => {
   return { ok: true };
 };
 
+// Vitesse de simulation : nombre > 0 (multiplicateur du temps simulé par
+// seconde réelle). Même retour que setEpsilon.
+export const setSpeed = (settings, value) => {
+  const n = parseNumber(value);
+  if (!(n > 0) || !Number.isFinite(n)) {
+    return { ok: false, error: "La vitesse doit être un nombre supérieur à 0." };
+  }
+  settings.speed = n;
+  return { ok: true };
+};
+
 // Vrai quand la portée est illimitée et qu'il y a beaucoup de particules
 // (mode des règles seulement : la portée ne sert pas en mode gravité).
 export const needsRangeWarning = (settings) =>

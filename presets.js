@@ -92,6 +92,15 @@ export const validatePreset = (preset) => {
   ) {
     errors.push(`\`settings.substeps\` : entier de 1 à ${MAX_SUBSTEPS} attendu`);
   }
+  if (s.speed !== undefined && !(isNumber(s.speed) && s.speed > 0)) {
+    errors.push("`settings.speed` : vitesse > 0 attendue");
+  }
+  if (
+    s.timeUnit !== undefined &&
+    !(typeof s.timeUnit === "string" && s.timeUnit.trim() !== "")
+  ) {
+    errors.push("`settings.timeUnit` : texte non vide attendu");
+  }
   if (s.gravity !== undefined && !isNumber(s.gravity)) {
     errors.push("`settings.gravity` : nombre attendu");
   }

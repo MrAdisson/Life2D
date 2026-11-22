@@ -17,6 +17,10 @@
 //             "gravity" : vitesse-Verlet (symplectique). Relu à chaque pas,
 //   substeps: entier de 1 à 100, pas de dt calculés par image affichée
 //             (1 par défaut), relu à chaque image,
+//   speed:    nombre > 0, vitesse de simulation (1 par défaut) : multiplie le
+//             temps simulé par image (substeps × dt), en priorité par plus de
+//             sous-pas (plafond 100), relu à chaque image,
+//   timeUnit: texte facultatif, unité du temps simulé affiché (« jours »),
 //   friction: nombre, facteur appliqué à la vitesse par unité de temps
 //             (friction^dt par pas ; 1 = aucune perte),
 //   gravity:  nombre, accélération constante vers le bas en pixels par

@@ -36,10 +36,13 @@ export const createStatsMeter = ({ interval = 500 } = {}) => {
 const format = (n) => Math.round(n).toLocaleString("fr-FR");
 
 // Temps simulé (unités de temps du moteur) : au plus deux décimales.
-export const formatTime = (t) =>
-  (Number.isFinite(t) ? t : 0).toLocaleString("fr-FR", {
+// `unit` : unité facultative donnée par le préréglage (« jours »...).
+export const formatTime = (t, unit) => {
+  const text = (Number.isFinite(t) ? t : 0).toLocaleString("fr-FR", {
     maximumFractionDigits: 2,
   });
+  return unit ? `${text} ${unit}` : text;
+};
 
 export const formatStats = ({ fps, stepsPerSecond, particles }) =>
   `${format(fps)} images/s · ${format(particles)} particules · ` +

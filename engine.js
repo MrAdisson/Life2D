@@ -74,6 +74,8 @@ for (const field of FIELDS) {
 // (friction^dt par pas) et la gravité verticale une accélération par unité de
 // temps². frame() enchaîne settings.substeps pas de dt (entier de 1 à
 // MAX_SUBSTEPS, 1 par défaut, relu à chaque image) : c'est un pas d'image.
+// settings.speed (multiplicateur, 1 par défaut) change le nombre de sous-pas
+// et leur durée : voir frameSteps().
 const component = (values, k) => {
   const v = Array.isArray(values) ? values[k] : undefined;
   return Number.isFinite(v) ? v : 0;
@@ -98,6 +100,44 @@ export const timeStepOf = (settings) =>
 export const substepsOf = (settings) => {
   const n = Math.floor(settings.substeps);
   return n >= 1 ? Math.min(n, MAX_SUBSTEPS) : 1;
+};
+
+// Vitesse de simulation : multiplicateur du temps simulé par image (1 par
+// défaut ; nombre fini > 0, sinon 1).
+export const speedOf = (settings) =>
+  settings.speed > 0 && Number.isFinite(settings.speed) ? settings.speed : 1;
+
+// Traduction de la vitesse en pas d'image. Le temps simulé visé par image est
+// speed × substeps × dt. Priorité aux sous-pas : n = ceil(speed × substeps)
+// pas, chacun de dt' = visé / n (au plus dt quand speed ≥ 1), tant que n ne
+// dépasse pas MAX_SUBSTEPS. Au-delà, n = MAX_SUBSTEPS pas de dt (le pas de
+// temps n'est pas agrandi : précision gardée) et la vitesse obtenue est
+// inférieure à celle demandée (`limited`). Vitesse 1 : exactement `substeps`
+// pas de `dt`.
+export const frameSteps = (settings) => {
+  const speed = speedOf(settings);
+  const base = substepsOf(settings);
+  const baseDt = timeStepOf(settings);
+  if (speed === 1) {
+    return { steps: base, dt: baseDt, requested: 1, achieved: 1, limited: false };
+  }
+  const wanted = Math.max(1, Math.ceil(speed * base - 1e-9));
+  if (wanted > MAX_SUBSTEPS) {
+    return {
+      steps: MAX_SUBSTEPS,
+      dt: baseDt,
+      requested: speed,
+      achieved: MAX_SUBSTEPS / base,
+      limited: true,
+    };
+  }
+  return {
+    steps: wanted,
+    dt: (speed * base * baseDt) / wanted,
+    requested: speed,
+    achieved: speed,
+    limited: false,
+  };
 };
 
 export const createSimulation = (
@@ -669,8 +709,8 @@ export const createSimulation = (
   };
 
   // Un pas de dt (settings.dt, relu à chaque pas).
-  const step = () => {
-    const dt = timeStepOf(settings);
+  const step = (stepDt = timeStepOf(settings)) => {
+    const dt = stepDt;
     prepare();
     if (gravityMode) {
       if (!wasGravity) accelReady = false;
@@ -697,8 +737,8 @@ export const createSimulation = (
   // Un pas d'image : settings.substeps pas de dt (relu à chaque image).
   // Renvoie le nombre de pas calculés.
   const frame = () => {
-    const n = substepsOf(settings);
-    for (let k = 0; k < n; k++) step();
+    const { steps: n, dt } = frameSteps(settings);
+    for (let k = 0; k < n; k++) step(dt);
     return n;
   };
 
