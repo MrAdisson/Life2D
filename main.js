@@ -2,6 +2,8 @@ import "./style.css";
 import { createGallery } from "./gallery.js";
 import { createPanel } from "./panel.js";
 import { createRenderer } from "./renderer.js";
+import { createCamera } from "./camera.js";
+import { attachOrbitControls } from "./orbit-controls.js";
 import { countParticles, createStatsMeter, formatStats } from "./stats.js";
 
 // Thread principal : affichage seulement. Le calcul tourne dans le Worker.
@@ -31,6 +33,24 @@ const launch = (settings, { edit = false } = {}) => {
   const counter = document.createElement("div");
   counter.className = "stats";
   document.body.appendChild(counter);
+
+  // Vue 3D : caméra orbitale (gardée d'un passage en 3D à l'autre pendant la
+  // simulation) et aide affichée en bas de l'écran.
+  const camera = createCamera();
+  canvas.tabIndex = 0;
+  canvas.setAttribute("aria-label", "Simulation");
+  attachOrbitControls(canvas, camera, { enabled: () => !!renderer?.view3d });
+  const hint = document.createElement("div");
+  hint.className = "view-hint";
+  hint.textContent =
+    "Vue 3D : glisser pour tourner · molette pour zoomer · double-clic pour recentrer (clavier : flèches, + / −, 0)";
+  hint.hidden = true;
+  document.body.appendChild(hint);
+  const syncView = () => {
+    const on = !!renderer?.view3d;
+    hint.hidden = !on;
+    canvas.classList.toggle("orbit", on);
+  };
 
   const back = document.createElement("button");
   back.type = "button";
@@ -77,8 +97,12 @@ const launch = (settings, { edit = false } = {}) => {
       else {
         renderer = createRenderer(canvas, data);
         if (!renderer) fail("WebGL 2 n'est pas disponible dans ce navigateur.");
-        else requestAnimationFrame(loop);
+        else {
+          renderer.setCamera(camera);
+          requestAnimationFrame(loop);
+        }
       }
+      syncView();
     } else if (data.type === "positions" && data.generation === generation) {
       received = data.positions;
       uploaded = false;
@@ -137,6 +161,7 @@ const launch = (settings, { edit = false } = {}) => {
     renderer?.dispose();
     canvas.remove();
     counter.remove();
+    hint.remove();
     back.remove();
     panel.element.remove();
   };

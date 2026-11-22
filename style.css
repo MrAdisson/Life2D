@@ -115,6 +115,37 @@ button:focus-visible {
   pointer-events: none;
 }
 
+/* Vue 3D : aide et curseur d'orbite */
+.view-hint {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ccd;
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.view-hint[hidden] {
+  display: none;
+}
+canvas.orbit {
+  cursor: grab;
+  touch-action: none;
+}
+canvas.orbit.dragging {
+  cursor: grabbing;
+}
+canvas:focus {
+  outline: none;
+}
+canvas.orbit:focus-visible {
+  outline: 2px solid #6b7cff;
+}
+
 /* Panneau de réglages */
 .panel {
   --bg: rgba(18, 20, 28, 0.92);

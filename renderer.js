@@ -1,3 +1,5 @@
+import { createCamera, viewProjection } from "./camera.js";
+
 // Rendu WebGL 2 des particules : un disque par particule (dessin instancié),
 // dans l'ordre reçu (les plus massives d'abord, donc dessous). Le fond du
 // canevas reste transparent : on voit le fond sombre de la page, comme avant.
@@ -12,36 +14,57 @@ in vec3 a_position;
 in float a_radius;
 in vec4 a_color;
 uniform vec2 u_size;
-uniform float u_depth;   // profondeur de l'espace ; 0 : vue 2D
+uniform bool u_view3d;
+// Vue 3D : matrice de la caméra orbitale (camera.js), focale en pixels et
+// distances de la boîte la plus proche / la plus lointaine (teinte).
+uniform mat4 u_matrix;
+uniform float u_focal;
+uniform vec2 u_shade;
 out vec2 v_local;
 out float v_shade;
 out float v_radius;
 out vec4 v_color;
 void main() {
-  // Marge d'un pixel pour adoucir le bord du disque.
-  // Vue 3D : perspective centrée sur l'écran, caméra à une profondeur de
-  // distance devant le plan z = 0 (les particules lointaines sont plus
-  // petites, plus sombres et passent derrière les proches).
-  float scale = 1.0;
-  float shade = 1.0;
-  float ndcZ = 0.0;
-  vec2 pos = a_position.xy;
-  if (u_depth > 0.0) {
-    float t = clamp(a_position.z / u_depth, 0.0, 1.0);
-    scale = 1.0 / (1.0 + t);
-    shade = 1.0 - 0.5 * t;
-    ndcZ = t * 2.0 - 1.0;
-    vec2 center = u_size * 0.5;
-    pos = center + (pos - center) * scale;
+  v_color = a_color;
+  if (!u_view3d) {
+    // Vue 2D (inchangée) : marge d'un pixel pour adoucir le bord du disque.
+    vec2 local = a_corner * (a_radius + 1.0);
+    vec2 p = a_position.xy + local;
+    v_local = local;
+    v_radius = a_radius;
+    v_shade = 1.0;
+    gl_Position = vec4(p.x / u_size.x * 2.0 - 1.0, 1.0 - p.y / u_size.y * 2.0, 0.0, 1.0);
+    return;
   }
-  float radius = a_radius * scale;
+  // Vue 3D : disque toujours face à la caméra, de taille apparente
+  // inversement proportionnelle à la distance ; plus sombre au fond.
+  vec4 clip = u_matrix * vec4(a_position, 1.0);
+  if (clip.w <= 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // derrière la caméra : hors champ
+    return;
+  }
+  float radius = a_radius * u_focal / clip.w;
   vec2 local = a_corner * (radius + 1.0);
-  vec2 p = pos + local;
   v_local = local;
   v_radius = radius;
-  v_shade = shade;
-  v_color = a_color;
-  gl_Position = vec4(p.x / u_size.x * 2.0 - 1.0, 1.0 - p.y / u_size.y * 2.0, ndcZ * 0.99, 1.0);
+  float t = clamp((clip.w - u_shade.x) / (u_shade.y - u_shade.x), 0.0, 1.0);
+  v_shade = 1.0 - 0.6 * t;
+  gl_Position = clip + vec4(local * 2.0 / u_size * clip.w, 0.0, 0.0);
+}`;
+
+// Contour de la boîte de simulation en 3D (12 arêtes).
+const BOX_VERTEX = `#version 300 es
+in vec3 a_vertex;
+uniform mat4 u_matrix;
+void main() {
+  gl_Position = u_matrix * vec4(a_vertex, 1.0);
+}`;
+
+const BOX_FRAGMENT = `#version 300 es
+precision mediump float;
+out vec4 outColor;
+void main() {
+  outColor = vec4(0.22, 0.24, 0.3, 0.6);
 }`;
 
 const FRAGMENT = `#version 300 es
@@ -94,13 +117,40 @@ export const createRenderer = (canvas, initial) => {
   });
   if (!gl) return null;
 
-  const program = gl.createProgram();
-  gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
-  gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT));
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(gl.getProgramInfoLog(program));
-  }
+  const link = (vertex, fragment) => {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vertex));
+    gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fragment));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(p));
+    }
+    return p;
+  };
+
+  // Contour de la boîte (vue 3D seulement).
+  const boxProgram = link(BOX_VERTEX, BOX_FRAGMENT);
+  const boxMatrix = gl.getUniformLocation(boxProgram, "u_matrix");
+  const boxVao = gl.createVertexArray();
+  gl.bindVertexArray(boxVao);
+  const boxBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, boxBuffer);
+  const boxLocation = gl.getAttribLocation(boxProgram, "a_vertex");
+  gl.enableVertexAttribArray(boxLocation);
+  gl.vertexAttribPointer(boxLocation, 3, gl.FLOAT, false, 0, 0);
+  const setBox = (w, h, d) => {
+    const c = [
+      [0, 0, 0], [w, 0, 0], [w, h, 0], [0, h, 0],
+      [0, 0, d], [w, 0, d], [w, h, d], [0, h, d],
+    ];
+    const edges = [
+      0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7,
+    ];
+    gl.bindBuffer(gl.ARRAY_BUFFER, boxBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(edges.flatMap((k) => c[k])), gl.STATIC_DRAW);
+  };
+
+  const program = link(VERTEX, FRAGMENT);
   gl.useProgram(program);
 
   const vao = gl.createVertexArray();
@@ -137,14 +187,24 @@ export const createRenderer = (canvas, initial) => {
 
   let count = 0;
   let view3d = false;
-  const depthLocation = gl.getUniformLocation(program, "u_depth");
+  let depth = 0;
+  // Caméra de la vue 3D : remplacée par celle de la page (setCamera).
+  let camera = createCamera();
+  const uniform = (name) => gl.getUniformLocation(program, name);
+  const view3dLocation = uniform("u_view3d");
+  const matrixLocation = uniform("u_matrix");
+  const focalLocation = uniform("u_focal");
+  const shadeLocation = uniform("u_shade");
   // (Re)charge la description des particules : appelé à la création, puis à
   // chaque changement de types ou de nombres.
   const load = (particles) => {
     count = particles.count;
     // Vue 3D si le Worker simule en 3D ; sinon vue plane d'avant.
     view3d = particles.dimensions === 3 && particles.depth > 0;
-    gl.uniform1f(depthLocation, view3d ? particles.depth : 0);
+    depth = view3d ? particles.depth : 0;
+    gl.useProgram(program);
+    gl.uniform1i(view3dLocation, view3d ? 1 : 0);
+    if (view3d) setBox(canvas.width, canvas.height, depth);
     const rgba = particles.palette.map(cssColorToRgba);
     const colors = new Uint8Array(count * 4);
     for (let k = 0; k < count; k++) colors.set(rgba[particles.types[k]], k * 4);
@@ -170,6 +230,14 @@ export const createRenderer = (canvas, initial) => {
 
   return {
     load,
+    // Vrai si la vue en cours est en 3D (la page n'active l'orbite qu'alors).
+    get view3d() {
+      return view3d;
+    },
+    // camera : { yaw, pitch, zoom } (camera.js), lue à chaque image.
+    setCamera(value) {
+      camera = value;
+    },
     // positions : [x0, y0, z0, x1, y1, z1, ...] dans l'ordre d'affichage.
     upload(positions) {
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -184,6 +252,26 @@ export const createRenderer = (canvas, initial) => {
       if (view3d) gl.enable(gl.DEPTH_TEST);
       else gl.disable(gl.DEPTH_TEST);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (view3d) {
+        const view = viewProjection(camera, {
+          width: canvas.width,
+          height: canvas.height,
+          depth,
+        });
+        // Contour d'abord, sans écrire la profondeur : il reste visible à
+        // travers les particules mais derrière elles.
+        gl.depthMask(false);
+        gl.useProgram(boxProgram);
+        gl.uniformMatrix4fv(boxMatrix, false, view.matrix);
+        gl.bindVertexArray(boxVao);
+        gl.drawArrays(gl.LINES, 0, 24);
+        gl.depthMask(true);
+        gl.useProgram(program);
+        gl.uniformMatrix4fv(matrixLocation, false, view.matrix);
+        gl.uniform1f(focalLocation, view.focal);
+        gl.uniform2f(shadeLocation, ...view.shade);
+      }
+      gl.bindVertexArray(vao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
     },
   };
