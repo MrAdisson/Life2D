@@ -18,6 +18,6 @@ Règles :
 - Validation à l'ouverture de la galerie : `bodies` doit être une liste d'objets ; positions et vitesses de 2 ou 3 nombres ; masse et rayon > 0 s'ils sont donnés ; nom non vide s'il est donné ; `count` au moins égal au nombre de corps. Un fichier qui ne respecte pas ces règles devient une carte d'erreur (message en français) sans empêcher les autres.
 - Les préréglages sans `bodies` donnent exactement les mêmes résultats qu'avant.
 
-Limites : seul le préréglage « Système solaire (3D) » utilise `bodies` ; le panneau ne permet ni de voir, ni de modifier, ni d'ajouter des corps ; les corps sans `name` ne sont pas distingués des autres particules du type. Passer de 2D à 3D dans le panneau relance la simulation : les corps repartent de leur état donné.
+Limites : seul le préréglage « Système solaire (3D) » utilise `bodies` ; le panneau affiche et modifie la masse des corps (colonne « Masse » de leur type) mais ne permet ni de voir ni de modifier leur position et leur vitesse, ni d'ajouter des corps ; les corps sans `name` ne sont pas distingués des autres particules du type. Passer de 2D à 3D dans le panneau relance la simulation : les corps repartent de leur état donné.
 
 Code : `engine.js`, `presets.js`, `settings.js`, `simulation-host.js`, `panel.js`

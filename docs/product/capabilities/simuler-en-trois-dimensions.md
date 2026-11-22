@@ -9,7 +9,7 @@ Un réglage peut demander un espace en volume au lieu d'un plan : champ `dimensi
 
 Règles :
 - `dimensions` vaut `2` ou `3` ; absent : `2`. En 2D, z reste à 0 et les résultats sont exactement ceux d'avant l'arrivée de l'axe z (mêmes positions à graine identique, même temps de calcul).
-- `depth` (facultatif, en pixels, nombre fini > 0) donne la profondeur de l'espace en 3D ; absent : la plus petite des deux dimensions de la fenêtre. Il est ignoré en 2D.
+- `depth` (facultatif, en pixels, nombre fini > 0, réglable dans le panneau) donne la profondeur de l'espace en 3D ; absent : la plus petite des deux dimensions de la fenêtre. Il est ignoré en 2D.
 - Les positions initiales et le nouveau tirage placent les particules au hasard dans tout le volume (z compris entre 0 et la profondeur), sauf les corps placés d'un préréglage (`bodies`), qui partent de leur position et de leur vitesse données, z compris.
 - La portée d'interaction se mesure en 3D : deux particules proches en x et y mais éloignées en z n'interagissent pas.
 - Les bords `bounce` (rebond) et `wrap` (traversée) s'appliquent aussi sur z, devant et derrière, comme sur x et y.
@@ -21,7 +21,8 @@ Règles :
 - En 2D, le dessin est celui d'avant et les commandes de caméra sont inactives.
 
 - Un préréglage peut fixer la largeur et la hauteur de l'espace (`width`, `height`, nombres finis > 0, en 2D comme en 3D) au lieu de prendre la taille de la fenêtre : « Système solaire (3D) » s'en sert pour que toutes les orbites tiennent dans la boîte. La vue cadre alors cet espace dans la fenêtre, centré, proportions gardées (en 2D aussi, sans zoom possible).
+- Taille de la boîte dans le panneau (section « Espace », sous le commutateur 2D / 3D) : largeur, hauteur et, en 3D, profondeur, de 50 à 100 000 unités (pixels quand la boîte a la taille de la fenêtre), avec saisie exacte. Le changement s'applique en direct, sans nouveau tirage : les particules qui se retrouvent hors d'une boîte rétrécie y sont ramenées (contre le bord avec le rebond, de l'autre côté avec la traversée), vitesses gardées, et la vue recadre la nouvelle boîte. Une valeur hors bornes ou non numérique est refusée avec un message, l'ancienne est gardée. « Taille de la fenêtre » revient à la largeur et à la hauteur de la fenêtre, profondeur = la plus petite des deux.
 
-Limites : le panneau ne permet de régler ni `depth`, ni `width`, ni `height`. Sans `width` / `height`, la boîte suit la taille de la fenêtre au lancement (comme en 2D, redimensionner la fenêtre ne la change pas).
+Limites : sans taille fixée, la boîte suit la taille de la fenêtre au lancement (comme en 2D, redimensionner la fenêtre ne la change pas). Changer la taille de la boîte remet les traînées à zéro. Rétrécir la boîte du « Système solaire » coupe les orbites (les planètes rebondissent sur les bords) ; la taille du préréglage ne revient qu'en le relançant depuis la galerie.
 
 Code : `engine.js`, `settings.js`, `simulation-host.js`, `renderer.js`, `camera.js`, `orbit-controls.js`, `main.js`, `panel.js`, `presets.js`

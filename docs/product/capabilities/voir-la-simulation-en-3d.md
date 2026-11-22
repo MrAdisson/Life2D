@@ -21,6 +21,6 @@ Règles :
 - En 2D, les particules restent des disques plats et les commandes de caméra sont inactives.
 - Au retour à la galerie, le rendu est libéré. Si WebGL 2 manque, un message d'erreur s'affiche.
 
-Limites : l'ombrage est un effet de dessin sur des disques face à l'écran : pas d'ombres portées, et deux sphères qui se coupent ne s'interpénètrent pas visuellement (la plus proche au centre passe devant). Pas d'inertie après un glissé. Le panneau ne permet pas de régler la profondeur `depth`.
+Limites : l'ombrage est un effet de dessin sur des disques face à l'écran : pas d'ombres portées, et deux sphères qui se coupent ne s'interpénètrent pas visuellement (la plus proche au centre passe devant). Pas d'inertie après un glissé.
 
 Code : `renderer.js`, `camera.js`, `orbit-controls.js`, `main.js`, `style.css`
