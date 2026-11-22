@@ -37,7 +37,11 @@ for (const field of FIELDS) {
   });
 }
 
-// settings : réglage ; width/height : dimensions de l'espace ;
+// settings : réglage ; width/height : dimensions de l'espace (la taille du
+// canevas dans la page), remplacées par settings.width / settings.height
+// quand le réglage les fixe (nombres > 0 finis, relus à chaque pas comme
+// depth : espace plus grand que l'écran, comme celui du système solaire, ou
+// réglé dans le panneau) ;
 // depth : profondeur de l'espace en 3D si le réglage n'a pas de `depth`
 // (par défaut : la plus petite de width et height) ;
 // random : générateur [0,1[ (Math.random par défaut, injectable pour les tests).
@@ -140,16 +144,24 @@ export const frameSteps = (settings) => {
   };
 };
 
+// Taille de l'espace : celle du réglage (`width`, `height`) si elle est
+// donnée, sinon celle reçue (canevas).
+const fixedSize = (value) => value > 0 && Number.isFinite(value);
+export const worldSize = (settings, { width, height }) => ({
+  width: fixedSize(settings.width) ? settings.width : width,
+  height: fixedSize(settings.height) ? settings.height : height,
+});
+
 export const createSimulation = (
   settings,
-  { width, height, depth: defaultDepth, random = Math.random },
+  { width: givenWidth, height: givenHeight, depth: defaultDepth, random = Math.random },
 ) => {
+  let { width, height } = worldSize(settings, { width: givenWidth, height: givenHeight });
   const is3d = dimensionsOf(settings) === 3;
-  const fallbackDepth = defaultDepth ?? Math.min(width, height);
   const readDepth = () =>
     settings.depth > 0 && Number.isFinite(settings.depth)
       ? settings.depth
-      : fallbackDepth;
+      : defaultDepth ?? Math.min(width, height);
   let depth = readDepth();
 
   // Position et vitesse de départ du corps ; accélération à zéro.
@@ -262,8 +274,9 @@ export const createSimulation = (
             next[field][n] = old.state[field][previous.start + k];
           }
           if (remass) {
-            // Un corps garde sa masse et son rayon propres s'il en a.
-            if (!(body?.mass > 0)) next.mass[n] = type.mass;
+            // Un corps prend sa masse propre s'il en a une (le panneau la
+            // remplace en même temps que celle du type) et garde son rayon.
+            next.mass[n] = body?.mass > 0 ? body.mass : type.mass;
             if (!(body?.radius > 0)) next.radius[n] = next.mass[n] / 2 + 2;
           }
         } else if (body) {
@@ -331,8 +344,35 @@ export const createSimulation = (
     time = 0;
   };
 
+  // Relit la taille de l'espace (settings.width / height / depth, sinon la
+  // taille reçue) ; si elle a changé, les particules sorties de la boîte y
+  // sont ramenées (rebond : contre le bord ; traversée : de l'autre côté), sans
+  // toucher aux vitesses. Renvoie true si la taille a changé.
+  const refreshSize = () => {
+    const size = worldSize(settings, { width: givenWidth, height: givenHeight });
+    const nextDepth = is3d ? readDepth() : depth;
+    if (size.width === width && size.height === height && nextDepth === depth) {
+      return false;
+    }
+    width = size.width;
+    height = size.height;
+    depth = is3d ? readDepth() : depth;
+    const wrap = settings.edges === "wrap";
+    const inside = (v, size) =>
+      wrap ? ((v % size) + size) % size : Math.min(size, Math.max(0, v));
+    const { x, y, z } = state;
+    for (let i = 0; i < count; i++) {
+      x[i] = inside(x[i], width);
+      y[i] = inside(y[i], height);
+      if (is3d) z[i] = inside(z[i], depth);
+    }
+    accelReady = false;
+    return true;
+  };
+
   // Relit portée, epsilon, règles et dimensions de la grille.
   const prepare = () => {
+    refreshSize();
     const { types, rules = {} } = settings;
     epsilon = settings.epsilon;
     gravityMode = interactionOf(settings) === "gravity";
@@ -361,7 +401,6 @@ export const createSimulation = (
     // les paires sont examinées).
     let cellSize;
     if (is3d) {
-      depth = readDepth();
       cellSize = Math.max(
         range / CELLS_PER_RANGE,
         Math.cbrt((width * height * depth) / MAX_CELLS),
@@ -780,6 +819,13 @@ export const createSimulation = (
     get depth() {
       return is3d ? depth : 0;
     },
+    // Taille de l'espace (unités du moteur), voir worldSize.
+    get width() {
+      return width;
+    },
+    get height() {
+      return height;
+    },
     get state() {
       return state;
     },
@@ -808,6 +854,7 @@ export const createSimulation = (
     step,
     frame,
     sync,
+    refreshSize,
     reseed,
     writePositions,
   };

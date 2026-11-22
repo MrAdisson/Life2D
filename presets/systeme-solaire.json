@@ -1,22 +1,28 @@
 {
   "title": "Système solaire (3D)",
-  "description": "Un Soleil émissif et quatre planètes sur leurs orbites, avec noms et traînées. Cliquez sur une planète pour que la caméra la suive.",
+  "description": "Le Soleil et les huit planètes avec leurs masses et orbites réelles (données J2000), distances à l’échelle : une année terrestre passe en une demi-minute à la vitesse 1. Dézoomez pour voir jusqu’à Neptune, cliquez sur une planète pour la suivre.",
   "vignette": "vignettes/systeme-solaire.svg",
   "settings": {
     "interaction": "gravity",
-    "G": 1,
-    "epsilon": 1,
+    "G": 295.912208286,
+    "epsilon": 0.01,
     "friction": 1,
-    "dt": 0.25,
-    "substeps": 4,
+    "dt": 0.2,
+    "substeps": 1,
+    "speed": 1,
+    "timeUnit": "jours",
     "edges": "bounce",
     "dimensions": 3,
-    "depth": 600,
+    "width": 6674,
+    "height": 6674,
+    "depth": 300,
+    "range": 2000,
     "display": {
-      "sizeFactor": 1,
+      "sizeFactor": 2,
       "trails": true,
-      "trailLength": 150,
-      "labels": true
+      "trailLength": 500,
+      "labels": true,
+      "zoom": 5
     },
     "types": [
       {
@@ -28,17 +34,17 @@
           {
             "name": "Soleil",
             "position": [
-              500,
-              350,
-              300
+              3336.52569842,
+              3336.50142,
+              150.018388483
             ],
             "velocity": [
-              0,
-              0,
-              0
+              0.000383035410841,
+              -0.000712648245315,
+              -0.00000830282220262
             ],
-            "mass": 2000,
-            "radius": 22
+            "mass": 1,
+            "radius": 12
           }
         ]
       },
@@ -50,17 +56,17 @@
           {
             "name": "Mercure",
             "position": [
-              555,
-              350,
-              300
+              3343.28673593,
+              3366.44311537,
+              151.843743926
             ],
             "velocity": [
-              0,
-              6.03,
-              0.0
+              -3.30792980008,
+              0.724204728183,
+              0.36286453434
             ],
-            "mass": 1,
-            "radius": 6
+            "mass": 1.66013679527e-7,
+            "radius": 2.5
           }
         ]
       },
@@ -72,17 +78,17 @@
           {
             "name": "Vénus",
             "position": [
-              590,
-              350,
-              300
+              3288.92507088,
+              3390.19994114,
+              153.499850113
             ],
             "velocity": [
-              0,
-              4.708,
-              0.247
+              -1.52034884382,
+              -1.35324600541,
+              0.0692871056649
             ],
-            "mass": 2,
-            "radius": 9
+            "mass": 0.00000244783828574,
+            "radius": 3.8
           }
         ]
       },
@@ -94,17 +100,17 @@
           {
             "name": "Terre",
             "position": [
-              635,
-              350,
-              300
+              3314.51067635,
+              3432.33438575,
+              150.018362876
             ],
             "velocity": [
-              0,
-              3.849,
-              0.0
+              -1.70441334041,
+              -0.39234333139,
+              -0.00000819817460362
             ],
-            "mass": 2,
-            "radius": 10
+            "mass": 0.00000300348962244,
+            "radius": 4
           }
         ]
       },
@@ -116,21 +122,108 @@
           {
             "name": "Mars",
             "position": [
-              685,
-              350,
-              300
+              3462.72599642,
+              3280.48357996,
+              145.743091946
             ],
             "velocity": [
-              0,
-              3.27,
-              0.344
+              0.621655672599,
+              1.39785647569,
+              0.0140189079718
             ],
-            "mass": 1,
-            "radius": 7
+            "mass": 3.22715603786e-7,
+            "radius": 3
+          }
+        ]
+      },
+      {
+        "name": "Jupiter",
+        "color": "#d8b48a",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Jupiter",
+            "position": [
+              3815.24506849,
+              3462.35527634,
+              138.778648027
+            ],
+            "velocity": [
+              -0.200945881825,
+              0.765216087833,
+              0.00132915572077
+            ],
+            "mass": 0.000954791898313,
+            "radius": 9
+          }
+        ]
+      },
+      {
+        "name": "Saturne",
+        "color": "#e3d29b",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Saturne",
+            "position": [
+              3295.3327155,
+              4237.75222263,
+              135.952269462
+            ],
+            "velocity": [
+              -0.586515143007,
+              -0.0271662399781,
+              0.0237911443649
+            ],
+            "mass": 0.000285885670089,
+            "radius": 8
+          }
+        ]
+      },
+      {
+        "name": "Uranus",
+        "color": "#9fdbe3",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Uranus",
+            "position": [
+              1531.18834239,
+              3623.89562509,
+              174.491013813
+            ],
+            "velocity": [
+              -0.0643529883902,
+              -0.407310794952,
+              -0.000678884052494
+            ],
+            "mass": 0.0000436624404335,
+            "radius": 6
+          }
+        ]
+      },
+      {
+        "name": "Neptune",
+        "color": "#4a6fe3",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Neptune",
+            "position": [
+              5444.76169971,
+              5442.25719597,
+              58.0776174272
+            ],
+            "velocity": [
+              -0.223212418589,
+              0.223169839291,
+              0.000533953054824
+            ],
+            "mass": 0.0000515138371318,
+            "radius": 6
           }
         ]
       }
-    ],
-    "range": 2000
+    ]
   }
 }

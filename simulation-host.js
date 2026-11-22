@@ -3,9 +3,11 @@
 //
 // Protocole (messages) :
 //   page -> worker  { type: "init", settings, width, height }
-//   worker -> page  { type: "init", generation, count, dimensions, palette,
-//                     types, radii }
+//   worker -> page  { type: "init", generation, count, dimensions, depth,
+//                     width, height, palette, types, radii }
 //                   dimensions : 2 ou 3 (réglage `dimensions`) ;
+//                   width, height : taille de l'espace simulé (celle du
+//                   canevas, sauf si le réglage fixe `width` / `height`) ;
 //                   palette : couleur CSS de chaque type du réglage ;
 //                   names : nom de chaque particule (nom du corps explicite,
 //                   sinon null) ; emissive : 1 si la particule est émissive
@@ -28,7 +30,8 @@
 //                   types ou leurs nombres changent, le worker renvoie "init"
 //                   puis "positions" (nouvelle génération) ; si `dimensions`
 //                   change, la simulation repart d'un nouveau tirage (même
-//                   réponse)
+//                   réponse) ; si la taille de l'espace change (`width`,
+//                   `height`, `depth`), même réponse, sans nouveau tirage
 //   page -> worker  { type: "reseed" }   nouveau tirage des positions (même
 //                   réponse que ci-dessus) ; les corps explicites (`bodies`)
 //                   reprennent leur position et leur vitesse de départ
@@ -94,6 +97,8 @@ export const attachSimulation = (port, { random } = {}) => {
         count,
         dimensions: simulation.dimensions,
         depth: simulation.depth,
+        width: simulation.width,
+        height: simulation.height,
         palette,
         types,
         radii,
@@ -126,7 +131,12 @@ export const attachSimulation = (port, { random } = {}) => {
       if (dimensionsOf(settings) !== simulation.dimensions) {
         create();
         sendInit();
-      } else if (simulation.sync()) sendInit();
+      } else {
+        // Taille de l'espace ou types changés : nouvelle description.
+        const resized = simulation.refreshSize();
+        const synced = simulation.sync();
+        if (resized || synced) sendInit();
+      }
     } else if (data.type === "reseed") {
       simulation.reseed();
       sendInit();

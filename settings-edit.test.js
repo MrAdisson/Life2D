@@ -161,3 +161,89 @@ test("setDimensions : 3 ou 2, toute autre valeur donne 2", () => {
   setDimensions(s, 7);
   assert.equal(s.dimensions, 2);
 });
+
+// Polish LIFE-20 : masse des corps placés et taille de l'espace.
+import {
+  typeMass,
+  setWorldSize,
+  fitWorldToWindow,
+  MIN_WORLD_SIZE,
+  MAX_WORLD_SIZE,
+} from "./settings-edit.js";
+import { readFileSync } from "node:fs";
+import { createSimulation } from "./engine.js";
+
+test("masse affichée : corps placés (préréglage), masse du type ou aléatoire", () => {
+  const solar = JSON.parse(readFileSync("presets/systeme-solaire.json", "utf8")).settings;
+  for (const type of solar.types) {
+    const m = typeMass(type);
+    assert.equal(m.kind, "bodies", type.name);
+    assert.equal(m.value, type.bodies[0].mass, type.name);
+    assert.equal(hasRandomMass(type), false, type.name);
+  }
+  const mixed = { name: "a", count: 2, bodies: [{ mass: 1 }, { mass: 2 }] };
+  assert.deepEqual(typeMass(mixed), { kind: "mixed", value: null });
+  // Des particules tirées en plus des corps : la masse du type compte.
+  assert.deepEqual(typeMass({ count: 3, mass: 4, bodies: [{ mass: 1 }] }), { kind: "fixed", value: 4 });
+  assert.deepEqual(typeMass({ count: 3, bodies: [{ mass: 1 }] }), { kind: "random", value: null });
+  assert.deepEqual(typeMass({ count: 5 }), { kind: "random", value: null });
+});
+
+test("changer la masse d'un corps placé l'applique au moteur, sans le déplacer", () => {
+  const settings = {
+    interaction: "gravity", epsilon: 1, friction: 1, dimensions: 3, depth: 100,
+    types: [{ name: "a", color: "red", count: 1,
+      bodies: [{ name: "X", position: [10, 20, 30], velocity: [0, 0, 0], mass: 2, radius: 5 }] }],
+  };
+  const sim = createSimulation(settings, { width: 100, height: 100, random: () => 0.5 });
+  assert.equal(sim.state.mass[0], 2);
+  assert.equal(setMass(settings, "a", "7").ok, true);
+  assert.equal(typeMass(settings.types[0]).value, 7);
+  assert.equal(sim.sync(), true);
+  assert.equal(sim.state.mass[0], 7);
+  assert.equal(sim.state.radius[0], 5); // rayon d'affichage gardé
+  assert.deepEqual([sim.state.x[0], sim.state.y[0], sim.state.z[0]], [10, 20, 30]);
+  sim.reseed(); // le nouveau tirage garde la nouvelle masse
+  assert.equal(sim.state.mass[0], 7);
+});
+
+test("taille de l'espace : bornes, valeurs refusées, retour à la fenêtre", () => {
+  const s = fresh();
+  assert.equal(setWorldSize(s, "width", "800").ok, true);
+  assert.equal(setWorldSize(s, "height", 600).ok, true);
+  assert.equal(setWorldSize(s, "depth", "250,5").ok, true);
+  assert.deepEqual([s.width, s.height, s.depth], [800, 600, 250.5]);
+  for (const bad of [MIN_WORLD_SIZE - 1, MAX_WORLD_SIZE + 1, "abc", "", Infinity]) {
+    const r = setWorldSize(s, "width", bad);
+    assert.equal(r.ok, false, String(bad));
+    assert.match(r.error, /largeur/i);
+  }
+  assert.equal(s.width, 800);
+  assert.equal(setWorldSize(s, "longueur", 100).ok, false);
+  fitWorldToWindow(s);
+  assert.equal("width" in s || "height" in s || "depth" in s, false);
+});
+
+test("taille changée en direct : boîte relue, particules ramenées dedans", () => {
+  for (const edges of ["bounce", "wrap"]) {
+    const s = { ...fresh(), edges, dimensions: 3 };
+    let seed = 3;
+    const sim = createSimulation(s, {
+      width: 800, height: 600,
+      random: () => (seed = (seed * 16807) % 2147483647) / 2147483647,
+    });
+    assert.equal(sim.refreshSize(), false);
+    setWorldSize(s, "width", 200);
+    setWorldSize(s, "height", 100);
+    setWorldSize(s, "depth", 50);
+    assert.equal(sim.refreshSize(), true);
+    assert.deepEqual([sim.width, sim.height, sim.depth], [200, 100, 50]);
+    const { x, y, z } = sim.state;
+    for (let i = 0; i < sim.count; i++) {
+      assert.ok(x[i] >= 0 && x[i] <= 200 && y[i] >= 0 && y[i] <= 100 && z[i] >= 0 && z[i] <= 50, edges);
+    }
+    fitWorldToWindow(s);
+    assert.equal(sim.refreshSize(), true);
+    assert.deepEqual([sim.width, sim.height, sim.depth], [800, 600, 600]);
+  }
+});

@@ -139,3 +139,50 @@ test("au moins un préréglage utilise la 3D, accessible depuis la galerie", () 
   assert.ok(in3d.length >= 1);
   for (const f of in3d) assert.deepEqual(validatePreset(load(f)), [], f);
 });
+
+// LIFE-20 : préréglage « Système solaire » (données de LIFE-19).
+test("Système solaire : 3D, gravitation, corps de solar-system.js, traînées et étiquettes", async () => {
+  const { solarSystemBlock } = await import("./solar-system.js");
+  const p = load("systeme-solaire.json");
+  assert.deepEqual(validatePreset(p), []);
+  assert.match(p.title, /Système solaire/);
+  assert.ok(existsSync(`presets/${p.vignette}`));
+  const s = p.settings;
+  assert.equal(s.dimensions, 3);
+  assert.equal(s.interaction, "gravity");
+  assert.equal(s.friction, 1);
+  // Bloc identique à celui de l'outil (node tools/make-solar-system.js
+  // --epaisseur 300 --preset presets/systeme-solaire.json).
+  const block = solarSystemBlock({ thickness: s.depth });
+  for (const key of ["G", "epsilon", "timeUnit", "width", "height", "depth", "types"]) {
+    assert.deepEqual(s[key], block[key], key);
+  }
+  assert.deepEqual(
+    s.types.map((t) => t.name),
+    ["Soleil", "Mercure", "Vénus", "Terre", "Mars", "Jupiter", "Saturne", "Uranus", "Neptune"],
+  );
+  assert.equal(s.types[0].emissive, true);
+  assert.equal(s.display.trails, true);
+  assert.equal(s.display.labels, true);
+  // Vitesse de départ lisible : une année terrestre en 20 à 60 s à 60 images
+  // par seconde (temps simulé par image = substeps × dt, en jours).
+  assert.equal(s.timeUnit, "jours");
+  assert.equal(s.speed ?? 1, 1);
+  const secondsPerYear = 365.25 / ((s.substeps ?? 1) * s.dt) / 60;
+  assert.ok(secondsPerYear >= 20 && secondsPerYear <= 60, `${secondsPerYear.toFixed(1)} s`);
+  // Toutes les orbites tiennent dans l'espace fixé par le préréglage.
+  const sim = createSimulation(s, { width: 1280, height: 720, random: () => 0.5 });
+  assert.equal(sim.width, s.width);
+  assert.equal(sim.height, s.height);
+  assert.equal(sim.depth, s.depth);
+});
+
+test("`width` et `height` (taille de l'espace) : nombres finis > 0", () => {
+  const base = load("systeme-solaire.json");
+  const withSettings = (patch) => ({ ...base, settings: { ...base.settings, ...patch } });
+  assert.deepEqual(validatePreset(withSettings({ width: 100, height: 50 })), []);
+  for (const bad of [0, -1, "100", Infinity, null]) {
+    assert.match(validatePreset(withSettings({ width: bad })).join(), /width/);
+    assert.match(validatePreset(withSettings({ height: bad })).join(), /height/);
+  }
+});

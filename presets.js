@@ -3,7 +3,7 @@
 //
 // Forme d'un préréglage : { title, description, vignette, settings } où
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
-// edges, gravity, dimensions et depth facultatifs ; chaque type peut lister
+// edges, gravity, dimensions, depth, width et height facultatifs ; chaque type peut lister
 // des corps explicites `bodies` ; interaction, G, dt et substeps facultatifs). En mode
 // "rules" (défaut), la portée est obligatoire et finie : aucune simulation ne
 // démarre avec une portée illimitée (calcul lent), et les règles sont
@@ -16,6 +16,7 @@ import {
   MIN_TRAIL_LENGTH,
 } from "./display.js";
 import { MAX_COUNT, MAX_SUBSTEPS } from "./settings-edit.js";
+import { MAX_ZOOM, MIN_ZOOM } from "./camera.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -82,6 +83,9 @@ const validateDisplay = (d, errors) => {
     errors.push(
       `\`settings.display.trailLength\` : entier de ${MIN_TRAIL_LENGTH} à ${MAX_TRAIL_LENGTH} attendu`,
     );
+  }
+  if (d.zoom !== undefined && !(isNumber(d.zoom) && d.zoom >= MIN_ZOOM && d.zoom <= MAX_ZOOM)) {
+    errors.push(`\`settings.display.zoom\` : nombre de ${MIN_ZOOM} à ${MAX_ZOOM} attendu`);
   }
   for (const flag of ["trails", "labels"]) {
     if (d[flag] !== undefined && typeof d[flag] !== "boolean") {
@@ -154,6 +158,12 @@ export const validatePreset = (preset) => {
   if (s.display !== undefined) validateDisplay(s.display, errors);
   if (s.depth !== undefined && !(isNumber(s.depth) && s.depth > 0)) {
     errors.push("`settings.depth` : profondeur finie > 0 attendue");
+  }
+  // Taille de l'espace fixée par le préréglage (sinon celle du canevas).
+  for (const [field, label] of [["width", "largeur"], ["height", "hauteur"]]) {
+    if (s[field] !== undefined && !(isNumber(s[field]) && s[field] > 0)) {
+      errors.push(`\`settings.${field}\` : ${label} finie > 0 attendue`);
+    }
   }
   const names = new Set();
   if (!Array.isArray(s.types) || s.types.length === 0) {

@@ -11,6 +11,8 @@ Une valeur vide, nulle, négative ou non numérique est refusée : un message en
 
 Masse aléatoire : un type dont la masse est absente ou 0 (chaque particule tire la sienne entre 0 et 50) a un champ vide marqué « aléatoire » et une note qui l'explique. Saisir une masse fixe l'impose à toutes les particules existantes de ce type.
 
+Corps placés par un préréglage (`bodies`, par exemple le Soleil et les planètes du « Système solaire ») : quand toutes les particules d'un type sont des corps placés qui ont leur masse propre, le champ affiche cette masse (les très petites masses en notation scientifique courte, comme `1.66e-7`, la valeur exacte étant dans l'infobulle), et non « aléatoire » ; s'ils ont des masses différentes, le champ est vide et marqué « par corps ». Saisir une masse la donne aussi à ces corps : leur attraction change aussitôt, sans les déplacer ni changer leur taille affichée, et un nouveau tirage la garde.
+
 Limites : on ne peut pas revenir à une masse aléatoire depuis le panneau ; les particules les plus massives sont dessinées en premier (dessous), l'ordre suit les nouvelles masses ; rien n'est sauvegardé.
 
 Code : `panel.js`, `settings-edit.js`, `engine.js`, `simulation-host.js`

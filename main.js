@@ -37,7 +37,7 @@ const launch = (settings, { edit = false } = {}) => {
 
   // Vue 3D : caméra orbitale (gardée d'un passage en 3D à l'autre pendant la
   // simulation) et aide affichée en bas de l'écran.
-  const camera = createCamera();
+  const camera = createCamera({ zoom: displayOf(settings).zoom });
   canvas.tabIndex = 0;
   canvas.setAttribute("aria-label", "Simulation");
   attachOrbitControls(canvas, camera, {
@@ -230,6 +230,7 @@ const launch = (settings, { edit = false } = {}) => {
   const panel = createPanel(document.body, {
     settings,
     open: edit,
+    viewport: { width: canvas.width, height: canvas.height },
     onChange: sendSettings,
     onReseed: () => worker.postMessage({ type: "reseed" }),
     onPause: (value) => {

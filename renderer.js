@@ -24,6 +24,9 @@ in vec4 a_color;
 in float a_emissive;
 in float a_size;
 uniform vec2 u_size;
+// Vue 2D : échelle et décalage (pixels) qui font tenir l'espace simulé dans
+// le canevas ; (1, 0, 0) quand l'espace a la taille du canevas.
+uniform vec3 u_fit;
 uniform bool u_view3d;
 // Vue 3D : matrice de la caméra orbitale (camera.js), focale en pixels et
 // distances de la boîte la plus proche / la plus lointaine (teinte).
@@ -50,10 +53,11 @@ void main() {
   v_light = normalize(vec3(-0.45, 0.55, 0.7));
   if (!u_view3d) {
     // Vue 2D (inchangée) : marge d'un pixel pour adoucir le bord du disque.
-    vec2 local = a_corner * (a_radius + 1.0);
-    vec2 p = a_position.xy + local;
+    float r2d = a_radius * u_fit.x;
+    vec2 local = a_corner * (r2d + 1.0);
+    vec2 p = a_position.xy * u_fit.x + u_fit.yz + local;
     v_local = local;
-    v_radius = a_radius;
+    v_radius = r2d;
     v_shade = 1.0;
     gl_Position = vec4(p.x / u_size.x * 2.0 - 1.0, 1.0 - p.y / u_size.y * 2.0, 0.0, 1.0);
     return;
@@ -271,10 +275,15 @@ export const createRenderer = (canvas, initial) => {
   let count = 0;
   let view3d = false;
   let depth = 0;
+  // Espace simulé (unités du moteur) : la taille du canevas, sauf si le
+  // préréglage la fixe (`width` / `height`, message `init` du Worker).
+  let worldWidth = canvas.width;
+  let worldHeight = canvas.height;
   // Caméra de la vue 3D : remplacée par celle de la page (setCamera).
   let camera = createCamera();
   const uniform = (name) => gl.getUniformLocation(program, name);
   const view3dLocation = uniform("u_view3d");
+  const fitLocation = uniform("u_fit");
   const matrixLocation = uniform("u_matrix");
   const focalLocation = uniform("u_focal");
   const shadeLocation = uniform("u_shade");
@@ -302,9 +311,22 @@ export const createRenderer = (canvas, initial) => {
     // Vue 3D si le Worker simule en 3D ; sinon vue plane d'avant.
     view3d = particles.dimensions === 3 && particles.depth > 0;
     depth = view3d ? particles.depth : 0;
+    worldWidth = particles.width > 0 ? particles.width : canvas.width;
+    worldHeight = particles.height > 0 ? particles.height : canvas.height;
     gl.useProgram(program);
     gl.uniform1i(view3dLocation, view3d ? 1 : 0);
-    if (view3d) setBox(canvas.width, canvas.height, depth);
+    if (worldWidth === canvas.width && worldHeight === canvas.height) {
+      gl.uniform3f(fitLocation, 1, 0, 0);
+    } else {
+      const scale = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
+      gl.uniform3f(
+        fitLocation,
+        scale,
+        (canvas.width - worldWidth * scale) / 2,
+        (canvas.height - worldHeight * scale) / 2,
+      );
+    }
+    if (view3d) setBox(worldWidth, worldHeight, depth);
     const rgba = particles.palette.map(cssColorToRgba);
     const bytes = new Uint8Array(count * 4);
     for (let k = 0; k < count; k++) bytes.set(rgba[particles.types[k]], k * 4);
@@ -333,6 +355,12 @@ export const createRenderer = (canvas, initial) => {
       gl.DYNAMIC_DRAW,
     );
   };
+  const box = () => ({
+    width: worldWidth,
+    height: worldHeight,
+    depth,
+    screen: { width: canvas.width, height: canvas.height },
+  });
   load(initial);
 
   gl.uniform2f(gl.getUniformLocation(program, "u_size"), canvas.width, canvas.height);
@@ -348,9 +376,10 @@ export const createRenderer = (canvas, initial) => {
     get view3d() {
       return view3d;
     },
-    // Boîte de la vue 3D (pixels), pour les commandes de la caméra.
+    // Boîte de la vue 3D (unités du moteur) et taille de l'écran (pixels),
+    // pour les commandes de la caméra.
     get box() {
-      return { width: canvas.width, height: canvas.height, depth };
+      return box();
     },
     // camera : { yaw, pitch, zoom } (camera.js), lue à chaque image.
     setCamera(value) {
@@ -415,11 +444,7 @@ export const createRenderer = (canvas, initial) => {
           Number.isInteger(f) && f >= 0 && f < count
             ? [current[f * 3], current[f * 3 + 1], current[f * 3 + 2]]
             : null;
-        const view = viewProjection(camera, {
-          width: canvas.width,
-          height: canvas.height,
-          depth,
-        });
+        const view = viewProjection(camera, box());
         // Contour d'abord, sans écrire la profondeur : il reste visible à
         // travers les particules mais derrière elles.
         gl.depthMask(false);

@@ -113,5 +113,34 @@ test("déplacement latéral : la boîte suit le glisser, la réinitialisation le
   pan(camera, 1e7, 0, box);
   assert.ok(camera.panX <= 800);
   resetCamera(camera);
-  assert.deepEqual(camera, { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, follow: null, target: null });
+  assert.deepEqual(camera, { yaw: 0, pitch: 0, zoom: 1, home: 1, panX: 0, panY: 0, follow: null, target: null });
+});
+
+test("zoom de départ donné par le préréglage : rétabli par la réinitialisation", () => {
+  const camera = createCamera({ zoom: 3 });
+  assert.equal(camera.zoom, 3);
+  zoomBy(camera, 2);
+  orbit(camera, 10, 10);
+  resetCamera(camera);
+  assert.equal(camera.zoom, 3);
+  assert.deepEqual(camera, createCamera({ zoom: 3 }));
+});
+
+test("espace plus grand que l'écran : la face avant tient dans l'écran, centrée", () => {
+  // Espace carré de 6 000 unités, écran de 800 × 600 pixels.
+  const world = { width: 6000, height: 6000, depth: 300, screen: { width: 800, height: 600 } };
+  const view = viewProjection(createCamera(), world);
+  const centre = project(view.matrix, world, 3000, 3000, 150);
+  assert.ok(near(centre.x, 400) && near(centre.y, 300), JSON.stringify(centre));
+  // Face avant : la hauteur remplit l'écran, les proportions sont gardées
+  // (carré de 600 × 600 pixels au centre).
+  const topLeft = project(view.matrix, world, 0, 0, 0);
+  const bottomRight = project(view.matrix, world, 6000, 6000, 0);
+  assert.ok(near(topLeft.x, 100) && near(topLeft.y, 0), JSON.stringify(topLeft));
+  assert.ok(near(bottomRight.x, 700) && near(bottomRight.y, 600), JSON.stringify(bottomRight));
+  // Le déplacement latéral suit toujours le doigt, en pixels d'écran.
+  const camera = createCamera();
+  pan(camera, 40, 0, world);
+  const moved = project(viewProjection(camera, world).matrix, world, 3000, 3000, 150);
+  assert.ok(near(moved.x - 400, 40, 0.05), String(moved.x));
 });

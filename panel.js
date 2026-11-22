@@ -6,7 +6,11 @@ import {
   WARN_PARTICLES,
   addType,
   getRule,
-  hasRandomMass,
+  typeMass,
+  setWorldSize,
+  fitWorldToWindow,
+  MIN_WORLD_SIZE,
+  MAX_WORLD_SIZE,
   isGravitation,
   needsRangeWarning,
   parseNumber,
@@ -85,8 +89,11 @@ const errorLine = (id) => {
 // Saisie exacte : `step: "any"` accepte toutes les décimales.
 const numberInput = (props) => el("input", { type: "number", step: "any", ...props });
 
-// Affichage d'une valeur : au plus 9 décimales, sans bruit d'arrondi.
-const show = (v) => String(tidy(v));
+// Affichage d'une valeur : au plus 9 décimales, sans bruit d'arrondi ; les très
+// petites valeurs (masses des planètes en masses solaires) gardent 6 chiffres
+// significatifs au lieu d'être arrondies à 9 décimales.
+const show = (v) =>
+  v !== 0 && Math.abs(v) < 1e-3 ? String(Number(v.toPrecision(6))) : String(tidy(v));
 
 // Couleur d'une cellule de la matrice : rouge = répulsion, bleu = attraction.
 const heat = (v) => {
@@ -107,11 +114,21 @@ const shortRule = (v) => {
 
 // settings : réglage modifié en place ; onChange() : à appeler après chaque
 // modification ; onReseed() : nouveau tirage ; onPause(paused), onStep() :
-// lecture ; open : panneau déplié au départ (par défaut oui). Renvoie
+// lecture ; open : panneau déplié au départ (par défaut oui) ; viewport :
+// taille du canevas { width, height } (taille de l'espace par défaut). Renvoie
 // { element, setPaused, setSteps, setTime }.
 export const createPanel = (
   parent,
-  { settings, onChange, onReseed, onPause, onStep, onFollow, open = true },
+  {
+    settings,
+    onChange,
+    onReseed,
+    onPause,
+    onStep,
+    onFollow,
+    open = true,
+    viewport = { width: 1280, height: 720 },
+  },
 ) => {
   let paused = false;
   const root = el("aside", { className: "panel", id: "settings-panel" });
@@ -446,6 +463,7 @@ export const createPanel = (
       if ((settings.dimensions === 3 ? 3 : 2) === value) return;
       setDimensions(settings, value);
       syncDimensions();
+      syncSize();
       changed();
     };
     return b;
@@ -458,6 +476,93 @@ export const createPanel = (
       b.setAttribute("aria-pressed", String(on));
     }
   };
+  // Taille de l'espace : largeur, hauteur (et profondeur en 3D), en direct.
+  const currentSize = () => {
+    const width = settings.width > 0 ? settings.width : viewport.width;
+    const height = settings.height > 0 ? settings.height : viewport.height;
+    return { width, height, depth: settings.depth > 0 ? settings.depth : Math.min(width, height) };
+  };
+  const worldError = errorLine("world-size-error");
+  const sizeInputs = {};
+  for (const axis of ["width", "height", "depth"]) {
+    const input = numberInput({
+      id: `world-${axis}`,
+      min: MIN_WORLD_SIZE,
+      max: MAX_WORLD_SIZE,
+      value: show(currentSize()[axis]),
+    });
+    input.oninput = () => {
+      const result = setWorldSize(settings, axis, input.value);
+      worldError.textContent = result.ok
+        ? ""
+        : `${result.error} Valeur conservée : ${show(currentSize()[axis])}.`;
+      if (result.ok) {
+        syncSize();
+        changed();
+      }
+    };
+    input.onchange = () => {
+      syncSize();
+      worldError.textContent = "";
+    };
+    sizeInputs[axis] = input;
+  }
+  sizeInputs.width.setAttribute("aria-label", "Largeur de l'espace");
+  sizeInputs.height.setAttribute("aria-label", "Hauteur de l'espace");
+  sizeInputs.depth.setAttribute("aria-label", "Profondeur de l'espace (3D)");
+  const fitButton = el("button", {
+    type: "button",
+    id: "world-fit",
+    textContent: "⤢ Taille de la fenêtre",
+    title: "Largeur et hauteur de la fenêtre, profondeur = la plus petite des deux",
+  });
+  fitButton.onclick = () => {
+    fitWorldToWindow(settings);
+    worldError.textContent = "";
+    syncSize();
+    changed();
+  };
+  const depthField = el(
+    "label",
+    { className: "field size-field" },
+    el("span", { className: "field-label", textContent: "Profondeur" }),
+    sizeInputs.depth,
+  );
+  const syncSize = () => {
+    const size = currentSize();
+    for (const axis of ["width", "height", "depth"]) {
+      if (document.activeElement !== sizeInputs[axis]) sizeInputs[axis].value = show(size[axis]);
+    }
+    depthField.hidden = settings.dimensions !== 3;
+  };
+  const sizeBlock = el(
+    "div",
+    { className: "field" },
+    el("span", { className: "field-label", textContent: "Taille de la boîte" }),
+    el(
+      "div",
+      { className: "size-row" },
+      el(
+        "label",
+        { className: "field size-field" },
+        el("span", { className: "field-label", textContent: "Largeur" }),
+        sizeInputs.width,
+      ),
+      el(
+        "label",
+        { className: "field size-field" },
+        el("span", { className: "field-label", textContent: "Hauteur" }),
+        sizeInputs.height,
+      ),
+      depthField,
+    ),
+    fitButton,
+    el("span", {
+      className: "help",
+      textContent: `En unités de la simulation (pixels quand la boîte a la taille de la fenêtre), de ${MIN_WORLD_SIZE} à ${MAX_WORLD_SIZE}. Appliqué en direct, sans nouveau tirage : les particules sorties d'une boîte rétrécie y sont ramenées (contre le bord, ou de l'autre côté avec la traversée). La vue recadre toute la boîte dans la fenêtre.`,
+    }),
+    worldError,
+  );
   syncDimensions();
   // En tête du panneau : c'est le choix qui change le plus la simulation.
   const space = section(
@@ -469,7 +574,9 @@ export const createPanel = (
       el("span", { className: "field-label", textContent: "Dimensions" }),
       el("div", { className: "segmented" }, ...dimensionButtons),
     ),
+    sizeBlock,
   );
+  syncSize();
   // --- Rendu des astres (3D seulement) ---
   const displayNow = () => displayOf(settings);
   const sizeInput = numberInput({
@@ -589,6 +696,10 @@ export const createPanel = (
   );
   syncDisplay();
   renderFollow();
+  // Unité de longueur des libellés : pixels quand la boîte a la taille de la
+  // fenêtre, unités du préréglage sinon (système solaire : 100 par UA).
+  const fixedWorld = settings.width > 0 || settings.height > 0;
+  const lengthUnit = fixedWorld ? "unités" : "px";
   const physics = section(
     "Physique",
     "Appliqué dès le pas suivant, sans réinitialiser les particules. Chaque curseur a un champ pour la valeur exacte.",
@@ -636,7 +747,7 @@ export const createPanel = (
       "Facteur appliqué à la vitesse par unité de temps (à chaque pas avec un pas de temps de 1), de 0 à 1 : 1 = aucune perte, 0 = arrêt immédiat. Près de 1, chaque décimale compte (0,999 freine dix fois moins que 0,99) : le curseur est plus fin près de 0 et de 1, le champ accepte toutes les décimales (ex. 0,9995).",
     ),
     field(
-      "Epsilon (px)",
+      `Epsilon (${lengthUnit})`,
       epsilon,
       gravitation
         ? "Adoucissement : la distance d est remplacée par √(d² + ε²), ce qui évite une force infinie quand deux corps se touchent. Gardez-le petit devant les distances entre corps pour ne pas fausser les orbites. Nombre supérieur à 0."
@@ -644,7 +755,7 @@ export const createPanel = (
     ),
     epsilonError,
     field(
-      "Gravité verticale (px/pas²)",
+      `Gravité verticale (${lengthUnit}/${fixedWorld ? "temps" : "pas"}²)`,
       el("div", { className: "slider" }, gravitySlider, gravity),
       "Accélération constante (par unité de temps², donc par pas² avec un pas de temps de 1) ajoutée à toutes les particules, vers le bas (négative : vers le haut). 0 = aucune. Curseur : −0,2 à 0,2 ; le champ accepte toute valeur.",
     ),
@@ -696,13 +807,28 @@ export const createPanel = (
           changed();
         };
 
-        // Masse : nombre > 0 ; masse aléatoire (absente ou 0) : champ vide.
+        // Masse : nombre > 0. Masse aléatoire : champ vide ; corps placés
+        // (préréglage) : leur masse, ou « par corps » si elles diffèrent.
+        // Très petites masses (planètes, en masses solaires) : notation
+        // scientifique courte pour tenir dans la colonne ; valeur exacte dans
+        // l'infobulle.
+        const massText = () => {
+          const m = typeMass(type);
+          if (m.value === null) return "";
+          return m.value < 1e-3 ? m.value.toExponential(2) : show(m.value);
+        };
+        const placedOnly = () => ["bodies", "mixed"].includes(typeMass(type).kind);
         const mass = numberInput({
           min: 0,
-          placeholder: "aléatoire",
-          value: hasRandomMass(type) ? "" : show(type.mass),
-          title: "Masse de chaque particule du type (plus lourd = plus gros)",
+          placeholder: typeMass(type).kind === "mixed" ? "par corps" : "aléatoire",
+          value: massText(),
+          title: placedOnly()
+            ? "Masse du corps placé, donnée par le préréglage ; la changer modifie l'attraction sans déplacer le corps ni changer sa taille affichée"
+            : "Masse de chaque particule du type (plus lourd = plus gros)",
         });
+        if (typeMass(type).value !== null) {
+          mass.title += ` — valeur exacte : ${show(typeMass(type).value)}`;
+        }
         mass.dataset.mass = type.name;
         mass.setAttribute("aria-label", `Masse des particules ${type.name}`);
         const massError = errorLine("");
@@ -713,15 +839,16 @@ export const createPanel = (
             "Masse aléatoire : chaque particule a sa propre masse, tirée entre 0 et 50. Saisissez une masse pour l'imposer à toutes.",
         });
         const syncMass = () => {
-          randomNote.hidden = !hasRandomMass(type);
+          randomNote.hidden = typeMass(type).kind !== "random";
         };
         syncMass();
         mass.oninput = () => {
           const result = setMass(settings, type.name, mass.value);
           if (!result.ok) {
-            massError.textContent = hasRandomMass(type)
-              ? `${result.error} La masse reste aléatoire.`
-              : `${result.error} Masse conservée : ${show(type.mass)}.`;
+            massError.textContent =
+              massText() === ""
+                ? `${result.error} Masse inchangée.`
+                : `${result.error} Masse conservée : ${massText()}.`;
             return;
           }
           massError.textContent = "";
@@ -729,7 +856,7 @@ export const createPanel = (
           changed();
         };
         mass.onchange = () => {
-          mass.value = hasRandomMass(type) ? "" : show(type.mass);
+          mass.value = massText();
         };
 
         const remove = el("button", {

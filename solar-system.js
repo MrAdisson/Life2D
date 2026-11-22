@@ -61,20 +61,29 @@ export const systemHalfSize = (bodies, units) =>
   );
 
 // Bloc de réglage pour un préréglage en mode gravité :
-// { G, epsilon, timeUnit, depth, types } (un type par corps, avec un seul
-// corps explicite). Options : au (unités du moteur par UA), time ("day" ou
-// "year"), pluto (booléen), center ([x, y, z] du barycentre ; par défaut le
-// centre de la boîte de côté 2 × systemHalfSize, qui est aussi `depth`).
-export const solarSystemBlock = ({ au, time, pluto = false, center } = {}) => {
+// { G, epsilon, timeUnit, width, height, depth, types } (un type par corps,
+// avec un seul corps explicite). `width` et `height` fixent la taille de
+// l'espace (2 × systemHalfSize, indépendante du canevas). Options : au
+// (unités du moteur par UA), time ("day" ou "year"), pluto (booléen),
+// thickness (épaisseur de la boîte selon z, `depth` ; par défaut
+// 2 × systemHalfSize : un cube), center ([x, y, z] du barycentre ; par
+// défaut le centre de la boîte).
+export const solarSystemBlock = ({ au, time, pluto = false, thickness, center } = {}) => {
   const units = unitSystem({ au, time });
   const bodies = solarSystemBodies({ pluto });
   const half = systemHalfSize(bodies, units);
-  const states = systemStates(bodies, { units, center: center ?? [half, half, half] });
+  if (thickness !== undefined && !(Number.isFinite(thickness) && thickness > 0)) {
+    throw new Error("épaisseur : nombre d'unités > 0 attendu");
+  }
+  const depth = thickness ?? 2 * half;
+  const states = systemStates(bodies, { units, center: center ?? [half, half, depth / 2] });
   return {
     G: round(units.G),
     epsilon: round(EPSILON_AU * units.au),
     timeUnit: units.label,
-    depth: 2 * half,
+    width: 2 * half,
+    height: 2 * half,
+    depth,
     types: states.map(({ body, mass, position, velocity }) => ({
       name: body.name,
       color: body.color,

@@ -4,7 +4,7 @@ title: Faire rebondir les particules sur les bords
 parent: CAP-SIMULATION
 ---
 
-Une particule qui touche un bord du canevas voit sa vitesse inversée.
+Une particule qui touche un bord du canevas (ou de la boîte quand sa taille est fixée par le préréglage ou réglée dans le panneau, section « Espace ») voit sa vitesse inversée.
 
 Les bords sont réglables dans le panneau de réglages : le rebond est le mode par défaut, l'autre est la traversée (voir la capacité sur la portée, la friction et les bords).
 
