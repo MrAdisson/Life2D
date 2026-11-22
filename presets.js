@@ -4,8 +4,11 @@
 // Forme d'un préréglage : { title, description, vignette, settings } où
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
 // edges, gravity, dimensions et depth facultatifs ; chaque type peut lister
-// des corps explicites `bodies`). La portée est obligatoire et finie : aucune
-// simulation ne démarre avec une portée illimitée (calcul lent).
+// des corps explicites `bodies` ; interaction et G facultatifs). En mode
+// "rules" (défaut), la portée est obligatoire et finie : aucune simulation ne
+// démarre avec une portée illimitée (calcul lent), et les règles sont
+// obligatoires. En mode "gravity" (gravitation universelle, portée toujours
+// illimitée), la portée et les règles sont facultatives.
 import { MAX_COUNT } from "./settings-edit.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -64,8 +67,21 @@ export const validatePreset = (preset) => {
   if (!isNumber(s.friction) || s.friction < 0 || s.friction > 1) {
     errors.push("`settings.friction` : nombre de 0 à 1 attendu");
   }
-  if (!(isNumber(s.range) && s.range > 0)) {
+  if (s.interaction !== undefined && s.interaction !== "rules" && s.interaction !== "gravity") {
+    errors.push("`settings.interaction` : « rules » ou « gravity » attendu");
+  }
+  const gravitation = s.interaction === "gravity";
+  if (gravitation) {
+    // Portée facultative et ignorée par le moteur ; si elle est donnée, elle
+    // doit rester un nombre > 0 (Infinity accepté, impossible en JSON).
+    if (s.range !== undefined && s.range !== null && !(typeof s.range === "number" && s.range > 0)) {
+      errors.push("`settings.range` : nombre > 0 attendu (facultatif en mode gravité)");
+    }
+  } else if (!(isNumber(s.range) && s.range > 0)) {
     errors.push("`settings.range` : portée finie > 0 attendue");
+  }
+  if (s.G !== undefined && !(isNumber(s.G) && s.G > 0)) {
+    errors.push("`settings.G` : constante de gravitation > 0 attendue");
   }
   if (s.gravity !== undefined && !isNumber(s.gravity)) {
     errors.push("`settings.gravity` : nombre attendu");
@@ -102,7 +118,9 @@ export const validatePreset = (preset) => {
     });
   }
   if (!isObject(s.rules)) {
-    errors.push("`settings.rules` : objet attendu");
+    if (!(gravitation && s.rules === undefined)) {
+      errors.push("`settings.rules` : objet attendu");
+    }
   } else {
     for (const [a, row] of Object.entries(s.rules)) {
       if (!names.has(a)) errors.push(`règle « ${a} » : type inconnu`);

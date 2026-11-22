@@ -89,8 +89,25 @@ export const hasRandomMass = (type) => !(type.mass > 0);
 export const totalParticles = (settings) =>
   settings.types.reduce((n, t) => n + t.count, 0);
 
-// Vrai quand la portée est illimitée et qu'il y a beaucoup de particules.
+// Mode gravitation universelle (interaction: "gravity") : la portée et les
+// règles ne servent pas.
+export const isGravitation = (settings) => settings.interaction === "gravity";
+
+// Constante de gravitation G (mode "gravity") : nombre > 0. Même retour que
+// setEpsilon.
+export const setGravitationalConstant = (settings, value) => {
+  const n = parseNumber(value);
+  if (!(n > 0) || !Number.isFinite(n)) {
+    return { ok: false, error: "G doit être un nombre supérieur à 0." };
+  }
+  settings.G = n;
+  return { ok: true };
+};
+
+// Vrai quand la portée est illimitée et qu'il y a beaucoup de particules
+// (mode des règles seulement : la portée ne sert pas en mode gravité).
 export const needsRangeWarning = (settings) =>
+  !isGravitation(settings) &&
   !Number.isFinite(settings.range ?? Infinity) &&
   totalParticles(settings) >= WARN_PARTICLES;
 
