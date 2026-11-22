@@ -10,6 +10,7 @@ import {
   parseNumber,
   removeType,
   setCount,
+  setDimensions,
   setEdges,
   setEpsilon,
   setFriction,
@@ -309,6 +310,40 @@ export const createPanel = (
     }
   };
   syncEdges();
+  const dimensionButtons = [
+    [2, "2D", "Espace plan : z reste à 0"],
+    [3, "3D", "Espace en volume, vue orbitale : la simulation repart d'un nouveau tirage"],
+  ].map(([value, label, title]) => {
+    const b = el("button", { type: "button", textContent: label, title });
+    b.dataset.dimensions = String(value);
+    b.onclick = () => {
+      if ((settings.dimensions === 3 ? 3 : 2) === value) return;
+      setDimensions(settings, value);
+      syncDimensions();
+      changed();
+    };
+    return b;
+  });
+  const syncDimensions = () => {
+    const current = settings.dimensions === 3 ? 3 : 2;
+    for (const b of dimensionButtons) {
+      const on = b.dataset.dimensions === String(current);
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    }
+  };
+  syncDimensions();
+  // En tête du panneau : c'est le choix qui change le plus la simulation.
+  const space = section(
+    "Espace",
+    "2D : plan. 3D : volume que l'on fait tourner à la souris (glisser, molette, double-clic pour recentrer). Changer de mode relance un nouveau tirage.",
+    el(
+      "div",
+      { className: "field" },
+      el("span", { className: "field-label", textContent: "Dimensions" }),
+      el("div", { className: "segmented" }, ...dimensionButtons),
+    ),
+  );
   const physics = section(
     "Physique",
     "Appliqué dès le pas suivant, sans réinitialiser les particules. Chaque curseur a un champ pour la valeur exacte.",
@@ -659,7 +694,7 @@ export const createPanel = (
 
   render();
   syncWarning();
-  body.append(playback, physics, types, matrix, adder);
+  body.append(space, playback, physics, types, matrix, adder);
   root.append(toggle, body);
   parent.appendChild(root);
 

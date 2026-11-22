@@ -119,3 +119,17 @@ test("aucun préréglage ne démarre avec une portée illimitée", () => {
   p.settings.gravity = 0.1;
   assert.deepEqual(validatePreset(p), []);
 });
+
+test("`dimensions` (2 ou 3) et `depth` (> 0) sont acceptés, le reste refusé", () => {
+  const base = load("quatre-familles.json");
+  const withSettings = (patch) => ({ ...base, settings: { ...base.settings, ...patch } });
+  assert.deepEqual(validatePreset(withSettings({ dimensions: 2 })), []);
+  assert.deepEqual(validatePreset(withSettings({ dimensions: 3, depth: 400 })), []);
+  assert.deepEqual(validatePreset(withSettings({ dimensions: 3 })), []);
+  for (const dimensions of [1, 4, "3", null]) {
+    assert.match(validatePreset(withSettings({ dimensions })).join(), /dimensions/);
+  }
+  for (const depth of [0, -5, "400", Infinity]) {
+    assert.match(validatePreset(withSettings({ dimensions: 3, depth })).join(), /depth/);
+  }
+});

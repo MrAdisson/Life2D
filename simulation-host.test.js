@@ -27,8 +27,10 @@ test("worker : init renvoie couleurs, rayons et positions initiales", () => {
   assert.equal(first.type, "positions");
   assert.equal(first.steps, 0);
   assert.ok(first.positions instanceof Float32Array);
-  assert.equal(first.positions.length, 40000);
+  assert.equal(first.positions.length, 60000);
   assert.equal(first.positions[0], 400);
+  assert.equal(first.positions[2], 0); // z = 0 en 2D
+  assert.equal(init.dimensions, 2);
   assert.deepEqual(sent[1].transfer, [first.positions.buffer]);
 });
 
@@ -40,7 +42,7 @@ test("worker : chaque demande « step » calcule un pas et renvoie le tampon", (
   });
   send({ type: "init", settings: referenceSettings, width: 800, height: 600 });
   const before = sent[1].data.positions.slice();
-  const buffer = new Float32Array(40000);
+  const buffer = new Float32Array(60000);
   send({ type: "step", positions: buffer });
   send({ type: "step", positions: buffer });
   const last = sent.at(-1).data;
@@ -88,11 +90,11 @@ test("worker : changer un nombre renvoie « init » puis « positions » ; l'anc
   assert.equal(init.type, "init");
   assert.equal(init.count, 1586);
   assert.equal(init.generation, first.generation + 1);
-  assert.equal(positions.positions.length, 1586 * 2);
+  assert.equal(positions.positions.length, 1586 * 3);
   const n = sent.length;
   send({
     type: "step",
-    positions: new Float32Array(1585 * 2),
+    positions: new Float32Array(1585 * 3),
     generation: first.generation,
   });
   assert.equal(sent.length, n); // ancienne génération : ignoré
@@ -104,11 +106,11 @@ test("worker : « reseed » renvoie un nouvel état sans changer les nombres", (
   const { port, sent, send } = fakePort();
   attachSimulation(port, { random: seeded() });
   send({ type: "init", settings: structuredClone(defaultSettings), width: 800, height: 600 });
-  const before = sent[1].data.positions.slice(0, 4);
+  const before = sent[1].data.positions.slice(0, 6);
   send({ type: "reseed" });
   const [init, positions] = sent.slice(-2).map((m) => m.data);
   assert.equal(init.count, 1585);
-  assert.notDeepEqual(Array.from(positions.positions.slice(0, 4)), Array.from(before));
+  assert.notDeepEqual(Array.from(positions.positions.slice(0, 6)), Array.from(before));
 });
 
 test("worker : changer la masse d'un type renvoie les nouveaux rayons, positions conservées", () => {
@@ -136,7 +138,7 @@ test("worker : changer la masse d'un type renvoie les nouveaux rayons, positions
   // Mêmes positions (l'ordre d'affichage suit la masse : on compare les
   // ensembles de points).
   const points = (p) =>
-    Array.from({ length: p.length / 2 }, (_, k) => `${p[2 * k]},${p[2 * k + 1]}`).sort();
+    Array.from({ length: p.length / 3 }, (_, k) => `${p[3 * k]},${p[3 * k + 1]}`).sort();
   assert.deepEqual(points(positions.positions), points(before));
   assert.equal(positions.steps, 1);
 });
@@ -157,4 +159,44 @@ test("worker : gravité et epsilon modifiés s'appliquent au pas suivant sans «
   const plain = run({});
   assert.notDeepEqual(run({ gravity: 0.1 }), plain);
   assert.notDeepEqual(run({ epsilon: 1 }), plain);
+});
+
+test("worker : en 3D, le tampon transporte x, y, z et z évolue", () => {
+  const { port, sent, send } = fakePort();
+  attachSimulation(port, { random: seeded() });
+  const settings = { ...structuredClone(defaultSettings), range: 60, dimensions: 3, depth: 400 };
+  send({ type: "init", settings, width: 800, height: 600 });
+  const [init, first] = sent.map((m) => m.data);
+  assert.equal(init.dimensions, 3);
+  assert.equal(init.depth, 400); // la vue 3D en a besoin pour la perspective
+  assert.equal(first.positions.length, 1585 * 3);
+  const zOf = (p) => Array.from({ length: p.length / 3 }, (_, k) => p[3 * k + 2]);
+  const z0 = zOf(first.positions);
+  assert.ok(z0.every((z) => z >= 0 && z < 400));
+  assert.ok(new Set(z0).size > 1);
+  send({ type: "step", positions: first.positions, generation: init.generation });
+  assert.notDeepEqual(zOf(sent.at(-1).data.positions), z0);
+});
+
+test("worker : changer `dimensions` relance la simulation (nouvel « init »)", () => {
+  const { port, sent, send } = fakePort();
+  attachSimulation(port, { random: seeded() });
+  const settings = structuredClone(defaultSettings);
+  send({ type: "init", settings, width: 800, height: 600 });
+  const first = sent[0].data;
+  send({ type: "settings", settings: { ...structuredClone(settings), dimensions: 3 } });
+  const [init, positions] = sent.slice(-2).map((m) => m.data);
+  assert.equal(init.type, "init");
+  assert.equal(init.dimensions, 3);
+  assert.equal(init.depth, 600); // plus petite dimension du canevas
+  assert.equal(init.generation, first.generation + 1);
+  assert.equal(positions.steps, 0);
+  assert.ok(positions.positions.some((v, k) => k % 3 === 2 && v !== 0));
+});
+
+test("la vue 2D lit le même nombre de flottants par particule que le worker", async () => {
+  const { POSITION_STRIDE } = await import("./simulation-host.js");
+  const renderer = await import("./renderer.js");
+  assert.equal(POSITION_STRIDE, 3);
+  assert.equal(renderer.POSITION_STRIDE, POSITION_STRIDE);
 });
