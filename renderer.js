@@ -2,6 +2,10 @@
 // dans l'ordre reçu (les plus massives d'abord, donc dessous). Le fond du
 // canevas reste transparent : on voit le fond sombre de la page, comme avant.
 
+// Même valeur que dans simulation-host.js (non importé : ce module tourne sur
+// le thread principal, sans le moteur).
+export const POSITION_STRIDE = 3;
+
 const VERTEX = `#version 300 es
 in vec2 a_corner;
 in vec2 a_position;
@@ -81,13 +85,18 @@ export const createRenderer = (canvas, initial) => {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
-  const attribute = (name, size, type, { divisor, normalized, usage, data }) => {
+  const attribute = (
+    name,
+    size,
+    type,
+    { divisor, normalized, usage, data, stride = 0 },
+  ) => {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     if (data) gl.bufferData(gl.ARRAY_BUFFER, data, usage ?? gl.STATIC_DRAW);
     const location = gl.getAttribLocation(program, name);
     gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, size, type, normalized ?? false, 0, 0);
+    gl.vertexAttribPointer(location, size, type, normalized ?? false, stride, 0);
     gl.vertexAttribDivisor(location, divisor);
     return buffer;
   };
@@ -99,7 +108,12 @@ export const createRenderer = (canvas, initial) => {
     divisor: 1,
     normalized: true,
   });
-  const positionBuffer = attribute("a_position", 2, gl.FLOAT, { divisor: 1 });
+  // Tampon de positions : x, y, z par particule ; la vue 2D ne lit que x, y
+  // (z est ignoré).
+  const positionBuffer = attribute("a_position", 2, gl.FLOAT, {
+    divisor: 1,
+    stride: POSITION_STRIDE * Float32Array.BYTES_PER_ELEMENT,
+  });
 
   let count = 0;
   // (Re)charge la description des particules : appelé à la création, puis à
@@ -116,7 +130,7 @@ export const createRenderer = (canvas, initial) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
-      count * 2 * Float32Array.BYTES_PER_ELEMENT,
+      count * POSITION_STRIDE * Float32Array.BYTES_PER_ELEMENT,
       gl.DYNAMIC_DRAW,
     );
   };
@@ -130,7 +144,7 @@ export const createRenderer = (canvas, initial) => {
 
   return {
     load,
-    // positions : [x0, y0, x1, y1, ...] dans l'ordre d'affichage.
+    // positions : [x0, y0, z0, x1, y1, z1, ...] dans l'ordre d'affichage.
     upload(positions) {
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
