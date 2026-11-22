@@ -4,6 +4,7 @@ import { createPanel } from "./panel.js";
 import { createRenderer } from "./renderer.js";
 import { createCamera } from "./camera.js";
 import { attachOrbitControls } from "./orbit-controls.js";
+import { displayOf } from "./display.js";
 import { countParticles, createStatsMeter, formatStats } from "./stats.js";
 
 // Thread principal : affichage seulement. Le calcul tourne dans le Worker.
@@ -55,6 +56,72 @@ const launch = (settings, { edit = false } = {}) => {
     canvas.classList.toggle("orbit", on);
   };
 
+  // Étiquettes : un élément par corps nommé, replacé à chaque image (vue 3D).
+  const labelLayer = document.createElement("div");
+  labelLayer.className = "labels";
+  document.body.appendChild(labelLayer);
+  let bodyNames = []; // nom de chaque particule (ordre d'affichage) ou null
+  let labelNodes = []; // [indice, élément]
+  const buildLabels = () => {
+    labelLayer.replaceChildren();
+    labelNodes = [];
+    bodyNames.forEach((name, k) => {
+      if (!name) return;
+      const node = document.createElement("div");
+      node.className = "label";
+      node.textContent = name;
+      node.hidden = true;
+      labelLayer.appendChild(node);
+      labelNodes.push([k, node]);
+    });
+  };
+  const placeLabels = () => {
+    const show = !!renderer?.view3d && displayOf(settings).labels;
+    for (const [k, node] of labelNodes) {
+      const at = show ? renderer.screenPosition(k) : null;
+      node.hidden = !at;
+      if (at) {
+        node.style.transform = `translate(${at.x}px, ${at.y - at.radius - 6}px) translate(-50%, -100%)`;
+      }
+    }
+  };
+
+  // Suivre un corps : choisi dans la liste du panneau ou cliqué sur le canevas
+  // (un clic sans glisser, sur un corps nommé). Le corps est retrouvé par son
+  // nom quand la description des particules change.
+  const follow = (index) => {
+    camera.follow = index;
+    camera.panX = camera.panY = 0;
+    followName = index === null ? null : bodyNames[index];
+  };
+  let followName = null;
+  let downAt = null;
+  canvas.addEventListener("pointerdown", (event) => {
+    downAt = { x: event.clientX, y: event.clientY };
+  });
+  canvas.addEventListener("click", (event) => {
+    if (!renderer?.view3d || !downAt) return;
+    if (Math.hypot(event.clientX - downAt.x, event.clientY - downAt.y) > 4) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) * canvas.width) / rect.width;
+    const y = ((event.clientY - rect.top) * canvas.height) / rect.height;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const [k] of labelNodes) {
+      const at = renderer.screenPosition(k);
+      if (!at) continue;
+      const d = Math.hypot(at.x - x, at.y - y);
+      if (d <= Math.max(at.radius, 8) + 6 && d < bestDistance) {
+        best = k;
+        bestDistance = d;
+      }
+    }
+    if (best !== null) {
+      follow(best);
+      panel.setFollow(best);
+    }
+  });
+
   const back = document.createElement("button");
   back.type = "button";
   back.className = "back";
@@ -97,12 +164,19 @@ const launch = (settings, { edit = false } = {}) => {
       generation = data.generation;
       received = null; // tampon de l'ancienne taille
       uploaded = false;
+      bodyNames = data.names ?? [];
+      buildLabels();
+      const kept = followName === null ? -1 : bodyNames.indexOf(followName);
+      camera.follow = kept >= 0 ? kept : null;
+      if (kept < 0) followName = null;
+      panel?.setBodies(bodyNames, camera.follow);
       if (renderer) renderer.load(data);
       else {
         renderer = createRenderer(canvas, data);
         if (!renderer) fail("WebGL 2 n'est pas disponible dans ce navigateur.");
         else {
           renderer.setCamera(camera);
+          renderer.setDisplay(() => settings.display);
           requestAnimationFrame(loop);
         }
       }
@@ -134,6 +208,10 @@ const launch = (settings, { edit = false } = {}) => {
       }
     }
     renderer.draw();
+    // Double-clic ou « 0 » : la caméra a perdu son corps suivi.
+    if (camera.follow === null && followName !== null) followName = null;
+    panel.setFollow(camera.follow);
+    placeLabels();
     panel.setSteps(steps);
     panel.setTime(time);
     const stats = meter.frame(now, steps);
@@ -159,6 +237,7 @@ const launch = (settings, { edit = false } = {}) => {
     onStep: () => {
       if (paused) pendingSteps++;
     },
+    onFollow: follow,
   });
 
   stopCurrent = () => {
@@ -169,6 +248,7 @@ const launch = (settings, { edit = false } = {}) => {
     counter.remove();
     hint.remove();
     back.remove();
+    labelLayer.remove();
     panel.element.remove();
   };
 

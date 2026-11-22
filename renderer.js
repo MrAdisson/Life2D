@@ -1,4 +1,10 @@
 import { createCamera, viewProjection } from "./camera.js";
+import {
+  TRAIL_VERTEX_FLOATS,
+  createTrails,
+  displayOf,
+  trailsAvailable,
+} from "./display.js";
 
 // Rendu WebGL 2 des particules : un disque par particule (dessin instancié),
 // dans l'ordre reçu (les plus massives d'abord, donc dessous). En 3D, chaque
@@ -15,6 +21,7 @@ in vec2 a_corner;
 in vec3 a_position;
 in float a_radius;
 in vec4 a_color;
+in float a_emissive;
 uniform vec2 u_size;
 uniform bool u_view3d;
 // Vue 3D : matrice de la caméra orbitale (camera.js), focale en pixels et
@@ -22,6 +29,14 @@ uniform bool u_view3d;
 uniform mat4 u_matrix;
 uniform float u_focal;
 uniform vec2 u_shade;
+// Facteur global sur le rayon d'affichage ; matrice de vue et position (repère
+// de la caméra) du premier astre émissif, source de lumière des autres.
+uniform float u_scale;
+uniform mat4 u_view;
+uniform vec3 u_sun;
+uniform bool u_hasSun;
+out vec3 v_light;
+out float v_emissive;
 out vec2 v_local;
 out float v_shade;
 out float v_radius;
@@ -30,6 +45,8 @@ out vec4 v_color;
 void main() {
   v_color = a_color;
   v_lit = u_view3d ? 1.0 : 0.0;
+  v_emissive = u_view3d ? a_emissive : 0.0;
+  v_light = normalize(vec3(-0.45, 0.55, 0.7));
   if (!u_view3d) {
     // Vue 2D (inchangée) : marge d'un pixel pour adoucir le bord du disque.
     vec2 local = a_corner * (a_radius + 1.0);
@@ -47,7 +64,13 @@ void main() {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // derrière la caméra : hors champ
     return;
   }
-  float radius = a_radius * u_focal / clip.w;
+  if (u_hasSun && a_emissive < 0.5) {
+    // Lumière venue de l'astre émissif (la profondeur vue croît vers le fond,
+    // la normale d'une face visible pointe vers la caméra : z inversé).
+    vec3 d = u_sun - (u_view * vec4(a_position, 1.0)).xyz;
+    if (length(d) > 0.0001) v_light = normalize(vec3(d.xy, -d.z));
+  }
+  float radius = a_radius * u_scale * u_focal / clip.w;
   vec2 local = a_corner * (radius + 1.0);
   v_local = local;
   v_radius = radius;
@@ -71,12 +94,34 @@ void main() {
   outColor = vec4(0.22, 0.24, 0.3, 0.6);
 }`;
 
+// Traînées d'orbite (vue 3D) : segments de la couleur du corps, de plus en plus
+// opaques vers la position actuelle.
+const TRAIL_VERTEX = `#version 300 es
+in vec3 a_vertex;
+in vec4 a_color;
+uniform mat4 u_matrix;
+out vec4 v_color;
+void main() {
+  v_color = a_color;
+  gl_Position = u_matrix * vec4(a_vertex, 1.0);
+}`;
+
+const TRAIL_FRAGMENT = `#version 300 es
+precision mediump float;
+in vec4 v_color;
+out vec4 outColor;
+void main() {
+  outColor = vec4(v_color.rgb * v_color.a, v_color.a);
+}`;
+
 const FRAGMENT = `#version 300 es
 precision mediump float;
 in vec2 v_local;
 in float v_radius;
 in float v_shade;
 in float v_lit;
+in float v_emissive;
+in vec3 v_light;
 in vec4 v_color;
 out vec4 outColor;
 void main() {
@@ -84,13 +129,16 @@ void main() {
   if (coverage <= 0.0) discard;
   float alpha = v_color.a * coverage;
   vec3 rgb = v_color.rgb * v_shade;
-  if (v_lit > 0.5) {
+  if (v_emissive > 0.5) {
+    // Astre émissif : couleur vive, sans ombrage ni teinte de profondeur.
+    rgb = min(v_color.rgb * 1.1 + 0.08, 1.0);
+  } else if (v_lit > 0.5) {
     // Sphère : normale du point visible, lumière fixe venant du haut à gauche
     // devant la scène (ombrage de Lambert, lumière ambiante, reflet discret).
     vec2 q = v_local / max(v_radius, 0.5);
     float r2 = min(dot(q, q), 1.0);
     vec3 n = vec3(q, sqrt(1.0 - r2));
-    vec3 light = normalize(vec3(-0.45, 0.55, 0.7));
+    vec3 light = normalize(v_light);
     float diffuse = max(dot(n, light), 0.0);
     float specular = pow(max(dot(reflect(-light, n), vec3(0.0, 0.0, 1.0)), 0.0), 24.0);
     rgb = rgb * (0.18 + 0.95 * diffuse) + vec3(0.25 * specular * v_shade);
@@ -167,6 +215,21 @@ export const createRenderer = (canvas, initial) => {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(edges.flatMap((k) => c[k])), gl.STATIC_DRAW);
   };
 
+  // Traînées : sommets x, y, z, r, g, b, a reconstruits à chaque image.
+  const trailProgram = link(TRAIL_VERTEX, TRAIL_FRAGMENT);
+  const trailMatrix = gl.getUniformLocation(trailProgram, "u_matrix");
+  const trailVao = gl.createVertexArray();
+  gl.bindVertexArray(trailVao);
+  const trailBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, trailBuffer);
+  const trailStride = TRAIL_VERTEX_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+  const trailVertex = gl.getAttribLocation(trailProgram, "a_vertex");
+  gl.enableVertexAttribArray(trailVertex);
+  gl.vertexAttribPointer(trailVertex, 3, gl.FLOAT, false, trailStride, 0);
+  const trailColor = gl.getAttribLocation(trailProgram, "a_color");
+  gl.enableVertexAttribArray(trailColor);
+  gl.vertexAttribPointer(trailColor, 4, gl.FLOAT, false, trailStride, 12);
+
   const program = link(VERTEX, FRAGMENT);
   gl.useProgram(program);
 
@@ -196,6 +259,7 @@ export const createRenderer = (canvas, initial) => {
     divisor: 1,
     normalized: true,
   });
+  const emissiveBuffer = attribute("a_emissive", 1, gl.UNSIGNED_BYTE, { divisor: 1 });
   // Tampon de positions : x, y, z par particule (z = 0 en 2D).
   const positionBuffer = attribute("a_position", 3, gl.FLOAT, {
     divisor: 1,
@@ -212,6 +276,22 @@ export const createRenderer = (canvas, initial) => {
   const matrixLocation = uniform("u_matrix");
   const focalLocation = uniform("u_focal");
   const shadeLocation = uniform("u_shade");
+  const scaleLocation = uniform("u_scale");
+  const viewLocation = uniform("u_view");
+  const sunLocation = uniform("u_sun");
+  const hasSunLocation = uniform("u_hasSun");
+
+  // Rendu des astres (vue 3D) : réglage `display` relu à chaque image.
+  let readDisplay = () => undefined;
+  let current = new Float32Array(0); // dernières positions reçues
+  let radii = new Float32Array(0);
+  let colors = []; // [r, g, b, a] (0 à 1) de chaque particule
+  let sun = -1; // indice du premier astre émissif
+  let trails = null;
+  let trailKey = "";
+  let trailData = new Float32Array(0);
+  let lastView = null;
+  let lastScale = 1;
   // (Re)charge la description des particules : appelé à la création, puis à
   // chaque changement de types ou de nombres.
   const load = (particles) => {
@@ -223,12 +303,23 @@ export const createRenderer = (canvas, initial) => {
     gl.uniform1i(view3dLocation, view3d ? 1 : 0);
     if (view3d) setBox(canvas.width, canvas.height, depth);
     const rgba = particles.palette.map(cssColorToRgba);
-    const colors = new Uint8Array(count * 4);
-    for (let k = 0; k < count; k++) colors.set(rgba[particles.types[k]], k * 4);
+    const bytes = new Uint8Array(count * 4);
+    for (let k = 0; k < count; k++) bytes.set(rgba[particles.types[k]], k * 4);
+    colors = Array.from({ length: count }, (_, k) =>
+      Array.from(bytes.subarray(k * 4, k * 4 + 4), (v) => v / 255),
+    );
+    radii = particles.radii;
+    const emissive = particles.emissive ?? new Uint8Array(count);
+    sun = emissive.indexOf(1);
+    current = new Float32Array(count * POSITION_STRIDE);
+    trails = null;
+    trailKey = "";
+    gl.bindBuffer(gl.ARRAY_BUFFER, emissiveBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, emissive, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, radiusBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, particles.radii, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, bytes, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
@@ -259,10 +350,48 @@ export const createRenderer = (canvas, initial) => {
     setCamera(value) {
       camera = value;
     },
+    // Réglage d'affichage des astres : fonction qui renvoie `settings.display`
+    // (relue à chaque image).
+    setDisplay(read) {
+      readDisplay = read;
+    },
+    // Position écran (pixels du canevas) et rayon apparent du corps k dans la
+    // dernière image 3D dessinée ; null si la vue est plane ou le corps est
+    // derrière la caméra.
+    screenPosition(k) {
+      if (!view3d || !lastView || k < 0 || k >= count) return null;
+      const m = lastView.matrix;
+      const x = current[k * 3], y = current[k * 3 + 1], z = current[k * 3 + 2];
+      const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+      if (!(w > 0)) return null;
+      const cx = m[0] * x + m[4] * y + m[8] * z + m[12];
+      const cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+      return {
+        x: ((cx / w + 1) / 2) * canvas.width,
+        y: ((1 - cy / w) / 2) * canvas.height,
+        radius: (radii[k] * lastScale * lastView.focal) / w,
+      };
+    },
     // positions : [x0, y0, z0, x1, y1, z1, ...] dans l'ordre d'affichage.
     upload(positions) {
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
+      current.set(positions.subarray(0, current.length));
+      if (view3d) {
+        const d = displayOf({ display: readDisplay() });
+        if (d.trails && trailsAvailable(count)) {
+          const key = `${count}:${d.trailLength}`;
+          if (key !== trailKey) {
+            trails = createTrails(count, d.trailLength);
+            trailKey = key;
+            trailData = new Float32Array(trails.maxVertices * TRAIL_VERTEX_FLOATS);
+          }
+          trails.push(current);
+        } else {
+          trails = null;
+          trailKey = "";
+        }
+      }
     },
     // Libère le contexte WebGL (la page en change à chaque simulation lancée).
     dispose() {
@@ -274,6 +403,12 @@ export const createRenderer = (canvas, initial) => {
       else gl.disable(gl.DEPTH_TEST);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       if (view3d) {
+        // Caméra centrée sur le corps suivi.
+        const f = camera.follow;
+        camera.target =
+          Number.isInteger(f) && f >= 0 && f < count
+            ? [current[f * 3], current[f * 3 + 1], current[f * 3 + 2]]
+            : null;
         const view = viewProjection(camera, {
           width: canvas.width,
           height: canvas.height,
@@ -286,8 +421,37 @@ export const createRenderer = (canvas, initial) => {
         gl.uniformMatrix4fv(boxMatrix, false, view.matrix);
         gl.bindVertexArray(boxVao);
         gl.drawArrays(gl.LINES, 0, 24);
+        // Traînées : sous les particules, sans écrire la profondeur.
+        if (trails && trails.filled > 1) {
+          const n = trails.write(trailData, colors);
+          gl.useProgram(trailProgram);
+          gl.uniformMatrix4fv(trailMatrix, false, view.matrix);
+          gl.bindVertexArray(trailVao);
+          gl.bindBuffer(gl.ARRAY_BUFFER, trailBuffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            trailData.subarray(0, n * TRAIL_VERTEX_FLOATS),
+            gl.DYNAMIC_DRAW,
+          );
+          gl.drawArrays(gl.LINES, 0, n);
+        }
         gl.depthMask(true);
         gl.useProgram(program);
+        lastView = view;
+        lastScale = displayOf({ display: readDisplay() }).sizeFactor;
+        gl.uniform1f(scaleLocation, lastScale);
+        gl.uniformMatrix4fv(viewLocation, false, view.view);
+        gl.uniform1i(hasSunLocation, sun >= 0 ? 1 : 0);
+        if (sun >= 0) {
+          const v = view.view;
+          const x = current[sun * 3], y = current[sun * 3 + 1], z = current[sun * 3 + 2];
+          gl.uniform3f(
+            sunLocation,
+            v[0] * x + v[4] * y + v[8] * z + v[12],
+            v[1] * x + v[5] * y + v[9] * z + v[13],
+            v[2] * x + v[6] * y + v[10] * z + v[14],
+          );
+        }
         gl.uniformMatrix4fv(matrixLocation, false, view.matrix);
         gl.uniform1f(focalLocation, view.focal);
         gl.uniform2f(shadeLocation, ...view.shade);

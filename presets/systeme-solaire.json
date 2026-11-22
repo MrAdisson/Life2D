@@ -1,0 +1,136 @@
+{
+  "title": "Système solaire (3D)",
+  "description": "Un Soleil émissif et quatre planètes sur leurs orbites, avec noms et traînées. Cliquez sur une planète pour que la caméra la suive.",
+  "vignette": "vignettes/systeme-solaire.svg",
+  "settings": {
+    "interaction": "gravity",
+    "G": 1,
+    "epsilon": 1,
+    "friction": 1,
+    "dt": 0.25,
+    "substeps": 4,
+    "edges": "bounce",
+    "dimensions": 3,
+    "depth": 600,
+    "display": {
+      "sizeFactor": 1,
+      "trails": true,
+      "trailLength": 150,
+      "labels": true
+    },
+    "types": [
+      {
+        "name": "Soleil",
+        "color": "#ffc94d",
+        "count": 1,
+        "emissive": true,
+        "bodies": [
+          {
+            "name": "Soleil",
+            "position": [
+              500,
+              350,
+              300
+            ],
+            "velocity": [
+              0,
+              0,
+              0
+            ],
+            "mass": 2000,
+            "radius": 22
+          }
+        ]
+      },
+      {
+        "name": "Mercure",
+        "color": "#b5a99a",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Mercure",
+            "position": [
+              555,
+              350,
+              300
+            ],
+            "velocity": [
+              0,
+              6.03,
+              0.0
+            ],
+            "mass": 1,
+            "radius": 6
+          }
+        ]
+      },
+      {
+        "name": "Vénus",
+        "color": "#e8c27a",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Vénus",
+            "position": [
+              590,
+              350,
+              300
+            ],
+            "velocity": [
+              0,
+              4.708,
+              0.247
+            ],
+            "mass": 2,
+            "radius": 9
+          }
+        ]
+      },
+      {
+        "name": "Terre",
+        "color": "#4f8cff",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Terre",
+            "position": [
+              635,
+              350,
+              300
+            ],
+            "velocity": [
+              0,
+              3.849,
+              0.0
+            ],
+            "mass": 2,
+            "radius": 10
+          }
+        ]
+      },
+      {
+        "name": "Mars",
+        "color": "#d9603b",
+        "count": 1,
+        "bodies": [
+          {
+            "name": "Mars",
+            "position": [
+              685,
+              350,
+              300
+            ],
+            "velocity": [
+              0,
+              3.27,
+              0.344
+            ],
+            "mass": 1,
+            "radius": 7
+          }
+        ]
+      }
+    ],
+    "range": 2000
+  }
+}

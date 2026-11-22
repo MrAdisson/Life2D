@@ -9,6 +9,12 @@
 // démarre avec une portée illimitée (calcul lent), et les règles sont
 // obligatoires. En mode "gravity" (gravitation universelle, portée toujours
 // illimitée), la portée et les règles sont facultatives.
+import {
+  MAX_SIZE_FACTOR,
+  MAX_TRAIL_LENGTH,
+  MIN_SIZE_FACTOR,
+  MIN_TRAIL_LENGTH,
+} from "./display.js";
 import { MAX_COUNT, MAX_SUBSTEPS } from "./settings-edit.js";
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -36,6 +42,9 @@ const validateBodies = (t, at, errors) => {
         errors.push(`\`${bt}.${field}\` : tableau de 2 ou 3 nombres attendu`);
       }
     }
+    if (b.emissive !== undefined && typeof b.emissive !== "boolean") {
+      errors.push(`\`${bt}.emissive\` : booléen attendu`);
+    }
     for (const field of ["mass", "radius"]) {
       if (b[field] !== undefined && !(isNumber(b[field]) && b[field] > 0)) {
         errors.push(`\`${bt}.${field}\` : nombre > 0 attendu`);
@@ -46,6 +55,32 @@ const validateBodies = (t, at, errors) => {
     errors.push(
       `\`${at}.count\` : au moins ${t.bodies.length} attendu (un par corps de \`bodies\`)`,
     );
+  }
+};
+
+// Rendu des astres (voir display.js) : valeurs facultatives.
+const validateDisplay = (d, errors) => {
+  if (!isObject(d)) return errors.push("`settings.display` : objet attendu");
+  if (
+    d.sizeFactor !== undefined &&
+    !(isNumber(d.sizeFactor) && d.sizeFactor >= MIN_SIZE_FACTOR && d.sizeFactor <= MAX_SIZE_FACTOR)
+  ) {
+    errors.push(
+      `\`settings.display.sizeFactor\` : nombre de ${MIN_SIZE_FACTOR} à ${MAX_SIZE_FACTOR} attendu`,
+    );
+  }
+  if (
+    d.trailLength !== undefined &&
+    !(Number.isInteger(d.trailLength) && d.trailLength >= MIN_TRAIL_LENGTH && d.trailLength <= MAX_TRAIL_LENGTH)
+  ) {
+    errors.push(
+      `\`settings.display.trailLength\` : entier de ${MIN_TRAIL_LENGTH} à ${MAX_TRAIL_LENGTH} attendu`,
+    );
+  }
+  for (const flag of ["trails", "labels"]) {
+    if (d[flag] !== undefined && typeof d[flag] !== "boolean") {
+      errors.push(`\`settings.display.${flag}\` : booléen attendu`);
+    }
   }
 };
 
@@ -110,6 +145,7 @@ export const validatePreset = (preset) => {
   if (s.dimensions !== undefined && s.dimensions !== 2 && s.dimensions !== 3) {
     errors.push("`settings.dimensions` : 2 ou 3 attendu");
   }
+  if (s.display !== undefined) validateDisplay(s.display, errors);
   if (s.depth !== undefined && !(isNumber(s.depth) && s.depth > 0)) {
     errors.push("`settings.depth` : profondeur finie > 0 attendue");
   }
@@ -131,6 +167,9 @@ export const validatePreset = (preset) => {
       }
       if (t.mass !== undefined && !(isNumber(t.mass) && t.mass >= 0)) {
         errors.push(`\`${at}.mass\` : nombre positif ou nul attendu`);
+      }
+      if (t.emissive !== undefined && typeof t.emissive !== "boolean") {
+        errors.push(`\`${at}.emissive\` : booléen attendu`);
       }
       if (t.bodies !== undefined) validateBodies(t, at, errors);
     });

@@ -789,6 +789,11 @@ export const createSimulation = (
     get drawOrder() {
       return drawOrder;
     },
+    // Corps explicite de la particule d'indice i (entrée de `type.bodies`),
+    // ou null.
+    bodyAt(i) {
+      return bodyOf[i] ?? null;
+    },
     get particles() {
       return particles;
     },
