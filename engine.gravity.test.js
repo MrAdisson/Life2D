@@ -35,12 +35,15 @@ const gravitySettings = (bodies, patch = {}) => ({
   ...patch,
 });
 
-// Accélération subie au premier pas (vitesse de départ nulle : v = a).
+// Accélération subie au départ : un pas minuscule depuis une vitesse nulle
+// (vitesse-Verlet : v = dt·(a(x0) + a(x1))/2, et x1 ≈ x0 à dt² près, donc
+// v/dt = a au départ).
+const TINY_DT = 1e-9;
 const firstAcceleration = (settings, i) => {
-  const sim = createSimulation(settings, { ...SIZE, random: seeded() });
+  const sim = createSimulation({ ...settings, dt: TINY_DT }, { ...SIZE, random: seeded() });
   sim.step();
   const s = sim.state;
-  return [s.vx[i], s.vy[i], s.vz[i]];
+  return [s.vx[i] / TINY_DT, s.vy[i] / TINY_DT, s.vz[i] / TINY_DT];
 };
 
 const close = (actual, expected, rel = 1e-9) =>
@@ -148,9 +151,9 @@ test("gravité : quantité de mouvement conservée, portée et règles ignorées
 });
 
 // Orbite circulaire d'un corps léger autour d'un corps lourd : v = sqrt(G·M/r).
-// Intégrateur actuel (Euler semi-implicite, un pas = une unité de temps) :
-// avec environ 560 pas par tour, l'écart de rayon mesuré est d'environ 0,6 %
-// sur un tour complet (tolérance retenue : 1 %).
+// Intégrateur vitesse-Verlet (LIFE-15), dt = 1 : avec environ 560 pas par
+// tour, l'écart de rayon mesuré est d'environ 0,006 % sur un tour complet
+// (0,6 % avec l'ancien Euler semi-implicite ; tolérance retenue : 1 %).
 const ORBIT_TOLERANCE = 0.01;
 
 test(`orbite circulaire : rayon à ${ORBIT_TOLERANCE * 100} % près sur un tour (2D et 3D)`, () => {

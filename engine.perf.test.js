@@ -1,5 +1,6 @@
 // Garde-fou de performance : un pas du moteur à 10 000 particules, portée
-// finie, doit tenir dans le budget ; en mode gravité, un pas à 200 corps.
+// finie, doit tenir dans le budget ; en mode gravité, un pas à 200 corps, et
+// une image de 10 sous-pas à 200 corps dans le budget d'un pas à portée finie.
 // Fait partie de `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -79,4 +80,38 @@ test(`gravité : un pas à ${BODIES} corps (toutes les paires) tient en moins de
     median < GRAVITY_STEP_BUDGET_MS,
     `pas médian ${median.toFixed(3)} ms > budget ${GRAVITY_STEP_BUDGET_MS} ms`,
   );
+});
+
+// Pas d'image en mode gravité : `substeps` pas de dt (vitesse-Verlet, une
+// évaluation des forces par pas). Budget : celui d'un pas à portée finie.
+
+const SUBSTEPS = 10;
+
+test(`gravité : une image à ${BODIES} corps et ${SUBSTEPS} sous-pas tient en moins de ${STEP_BUDGET_MS} ms`, () => {
+  let seed = 5;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const settings = {
+    interaction: "gravity",
+    G: 1,
+    epsilon: 1,
+    friction: 1,
+    dimensions: 3,
+    dt: 0.1,
+    substeps: SUBSTEPS,
+    types: [
+      { name: "soleil", color: "yellow", count: 1, mass: 1000 },
+      { name: "corps", color: "white", count: BODIES - 1, mass: 1 },
+    ],
+  };
+  const sim = createSimulation(settings, { width: 1920, height: 1080, depth: 1000, random });
+  for (let k = 0; k < 5; k++) sim.frame();
+  const times = [];
+  for (let k = 0; k < 11; k++) {
+    const t0 = performance.now();
+    sim.frame();
+    times.push(performance.now() - t0);
+  }
+  times.sort((a, b) => a - b);
+  const median = times[Math.floor(times.length / 2)];
+  assert.ok(median < STEP_BUDGET_MS, `image médiane ${median.toFixed(2)} ms > budget ${STEP_BUDGET_MS} ms`);
 });

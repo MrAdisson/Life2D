@@ -2,6 +2,10 @@
 // sans accès à la page. Convention des règles : rules[a][b] = g, positif =
 // répulsion, négatif = attraction, règle absente = 0.
 
+import { MAX_SUBSTEPS } from "./engine.js";
+
+export { MAX_SUBSTEPS };
+
 export const MAX_COUNT = 100000;
 
 // Avertissement de performance : portée illimitée avec au moins ce nombre de
@@ -101,6 +105,29 @@ export const setGravitationalConstant = (settings, value) => {
     return { ok: false, error: "G doit être un nombre supérieur à 0." };
   }
   settings.G = n;
+  return { ok: true };
+};
+
+// Pas de temps dt : nombre > 0. Même retour que setEpsilon.
+export const setTimeStep = (settings, value) => {
+  const n = parseNumber(value);
+  if (!(n > 0) || !Number.isFinite(n)) {
+    return { ok: false, error: "Le pas de temps doit être un nombre supérieur à 0." };
+  }
+  settings.dt = n;
+  return { ok: true };
+};
+
+// Sous-pas par image : entier de 1 à MAX_SUBSTEPS. Même retour que setEpsilon.
+export const setSubsteps = (settings, value) => {
+  const n = parseNumber(value);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_SUBSTEPS) {
+    return {
+      ok: false,
+      error: `Le nombre de sous-pas doit être un entier de 1 à ${MAX_SUBSTEPS}.`,
+    };
+  }
+  settings.substeps = n;
   return { ok: true };
 };
 
