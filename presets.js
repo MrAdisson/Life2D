@@ -3,7 +3,7 @@
 //
 // Forme d'un préréglage : { title, description, vignette, settings } où
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
-// edges et gravity facultatifs). La portée est obligatoire et finie : aucune
+// edges, gravity, dimensions et depth facultatifs). La portée est obligatoire et finie : aucune
 // simulation ne démarre avec une portée illimitée (calcul lent).
 import { MAX_COUNT } from "./settings-edit.js";
 
@@ -37,6 +37,12 @@ export const validatePreset = (preset) => {
   }
   if (s.edges !== undefined && s.edges !== "bounce" && s.edges !== "wrap") {
     errors.push("`settings.edges` : « bounce » ou « wrap » attendu");
+  }
+  if (s.dimensions !== undefined && s.dimensions !== 2 && s.dimensions !== 3) {
+    errors.push("`settings.dimensions` : 2 ou 3 attendu");
+  }
+  if (s.depth !== undefined && !(isNumber(s.depth) && s.depth > 0)) {
+    errors.push("`settings.depth` : profondeur finie > 0 attendue");
   }
   const names = new Set();
   if (!Array.isArray(s.types) || s.types.length === 0) {
