@@ -2,7 +2,7 @@
 // données du système solaire (solar-system.js) et outil de génération.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createSimulation } from "./engine.js";
 import { validatePreset } from "./presets.js";
 import {
@@ -232,4 +232,15 @@ test("outil : sortie déterministe, identique à solarSystemBlock", () => {
     `${JSON.stringify(solarSystemBlock({ time: "year", au: 50, pluto: true, center: [0, 0, 0] }), null, 2)}\n`,
   );
   assert.deepEqual(solarSystemBlock(), solarSystemBlock());
+});
+
+test("outil : option invalide refusée avec un message en français", () => {
+  for (const args of [["--temps", "heure"], ["--ua", "abc"], ["--centre", "1,2"], ["--inconnue"]]) {
+    const result = spawnSync(process.execPath, ["tools/make-solar-system.js", ...args], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1, args.join(" "));
+    assert.match(result.stderr, /^make-solar-system : /, args.join(" "));
+    assert.equal(result.stdout, "");
+  }
 });
