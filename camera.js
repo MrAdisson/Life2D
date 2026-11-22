@@ -10,17 +10,20 @@ export const FOV = Math.PI / 4; // champ vertical de 45°
 const FOCAL = 1 / Math.tan(FOV / 2);
 export const MAX_PITCH = Math.PI / 2 - 0.01; // pas de retournement par le pôle
 export const MIN_ZOOM = 0.2;
-export const MAX_ZOOM = 5;
+export const MAX_ZOOM = 20;
 // Radians par pixel glissé.
 export const ORBIT_SPEED = 0.01;
 
 // follow : indice (ordre d'affichage) du corps suivi, ou null ; target : point
 // [x, y, z] autour duquel la caméra tourne (le corps suivi), ou null = centre
 // de la boîte. Le rendu renseigne target à chaque image.
-export const createCamera = () => ({
+// home : zoom de départ, rétabli par la réinitialisation (1 par défaut ; un
+// préréglage peut le donner, `display.zoom`).
+export const createCamera = ({ zoom = 1 } = {}) => ({
   yaw: 0,
   pitch: 0,
-  zoom: 1,
+  zoom,
+  home: zoom,
   panX: 0,
   panY: 0,
   follow: null,
@@ -30,7 +33,7 @@ export const createCamera = () => ({
 export const resetCamera = (camera) => {
   camera.yaw = 0;
   camera.pitch = 0;
-  camera.zoom = 1;
+  camera.zoom = camera.home ?? 1;
   camera.panX = 0;
   camera.panY = 0;
   camera.follow = null;
@@ -63,7 +66,7 @@ export const zoomBy = (camera, factor) => {
 // plus grande dimension de la boîte.
 export const pan = (camera, dx, dy, box) => {
   const perPixel =
-    baseDistance(box) / camera.zoom / ((FOCAL * box.height) / 2);
+    baseDistance(box) / camera.zoom / ((FOCAL * screenOf(box).height) / 2);
   const limit = Math.max(box.width, box.height, box.depth);
   const clamp = (v) => Math.max(-limit, Math.min(limit, v));
   camera.panX = clamp((camera.panX ?? 0) + dx * perPixel);
@@ -71,10 +74,16 @@ export const pan = (camera, dx, dy, box) => {
   return camera;
 };
 
+// Taille de l'écran (pixels) : box.screen si l'espace simulé n'a pas la taille
+// du canevas (préréglage qui fixe `width` / `height`), sinon la boîte même.
+const screenOf = (box) => box.screen ?? { width: box.width, height: box.height };
+
 // Distance de la caméra au centre de la boîte au zoom 1 : la face avant
-// (width × height) tient dans le champ.
-const baseDistance = ({ width, height, depth }) => {
-  const aspect = width / height;
+// (width × height) tient dans le champ (centrée, proportions gardées).
+const baseDistance = (box) => {
+  const { width, height, depth } = box;
+  const screen = screenOf(box);
+  const aspect = screen.width / screen.height;
   const halfFit = Math.max(height / 2, width / 2 / aspect);
   return halfFit * FOCAL + depth / 2;
 };
@@ -83,9 +92,11 @@ const baseDistance = ({ width, height, depth }) => {
 // de la simulation dans l'espace de découpe, et données utiles au rendu :
 // focal (pixels écran par unité à distance 1, pour la taille des disques),
 // near/far (plans de découpe, la boîte entière tient entre les deux), shade.
-export const viewProjection = (camera, { width, height, depth }) => {
-  const aspect = width / height;
-  const distance = baseDistance({ width, height, depth }) / camera.zoom;
+export const viewProjection = (camera, box) => {
+  const { width, height, depth } = box;
+  const screen = screenOf(box);
+  const aspect = screen.width / screen.height;
+  const distance = baseDistance(box) / camera.zoom;
   const radius = Math.hypot(width, height, depth) / 2;
   const near = Math.max(1, distance - radius * 1.5);
   const far = distance + radius * 1.5;
@@ -147,7 +158,7 @@ export const viewProjection = (camera, { width, height, depth }) => {
   return {
     matrix,
     view,
-    focal: (FOCAL * height) / 2,
+    focal: (FOCAL * screen.height) / 2,
     near,
     far,
     distance,
@@ -159,7 +170,8 @@ export const viewProjection = (camera, { width, height, depth }) => {
 
 // Projette un point de la simulation en pixels écran (tests, outils) :
 // { x, y, w } avec w = profondeur vue (> 0 devant la caméra).
-export const project = (matrix, { width, height }, x, y, z) => {
+export const project = (matrix, box, x, y, z) => {
+  const { width, height } = screenOf(box);
   const m = matrix;
   const cx = m[0] * x + m[4] * y + m[8] * z + m[12];
   const cy = m[1] * x + m[5] * y + m[9] * z + m[13];

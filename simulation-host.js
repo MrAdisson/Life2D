@@ -3,9 +3,11 @@
 //
 // Protocole (messages) :
 //   page -> worker  { type: "init", settings, width, height }
-//   worker -> page  { type: "init", generation, count, dimensions, palette,
-//                     types, radii }
+//   worker -> page  { type: "init", generation, count, dimensions, depth,
+//                     width, height, palette, types, radii }
 //                   dimensions : 2 ou 3 (réglage `dimensions`) ;
+//                   width, height : taille de l'espace simulé (celle du
+//                   canevas, sauf si le réglage fixe `width` / `height`) ;
 //                   palette : couleur CSS de chaque type du réglage ;
 //                   names : nom de chaque particule (nom du corps explicite,
 //                   sinon null) ; emissive : 1 si la particule est émissive
@@ -94,6 +96,8 @@ export const attachSimulation = (port, { random } = {}) => {
         count,
         dimensions: simulation.dimensions,
         depth: simulation.depth,
+        width: simulation.width,
+        height: simulation.height,
         palette,
         types,
         radii,

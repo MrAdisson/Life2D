@@ -37,7 +37,10 @@ for (const field of FIELDS) {
   });
 }
 
-// settings : réglage ; width/height : dimensions de l'espace ;
+// settings : réglage ; width/height : dimensions de l'espace (la taille du
+// canevas dans la page), remplacées par settings.width / settings.height
+// quand le réglage les fixe (nombres > 0 finis, lus une fois, à la création :
+// espace plus grand que l'écran, comme celui du système solaire) ;
 // depth : profondeur de l'espace en 3D si le réglage n'a pas de `depth`
 // (par défaut : la plus petite de width et height) ;
 // random : générateur [0,1[ (Math.random par défaut, injectable pour les tests).
@@ -140,10 +143,19 @@ export const frameSteps = (settings) => {
   };
 };
 
+// Taille de l'espace : celle du réglage (`width`, `height`) si elle est
+// donnée, sinon celle reçue (canevas).
+const fixedSize = (value) => value > 0 && Number.isFinite(value);
+export const worldSize = (settings, { width, height }) => ({
+  width: fixedSize(settings.width) ? settings.width : width,
+  height: fixedSize(settings.height) ? settings.height : height,
+});
+
 export const createSimulation = (
   settings,
-  { width, height, depth: defaultDepth, random = Math.random },
+  { width: givenWidth, height: givenHeight, depth: defaultDepth, random = Math.random },
 ) => {
+  const { width, height } = worldSize(settings, { width: givenWidth, height: givenHeight });
   const is3d = dimensionsOf(settings) === 3;
   const fallbackDepth = defaultDepth ?? Math.min(width, height);
   const readDepth = () =>
@@ -779,6 +791,13 @@ export const createSimulation = (
     },
     get depth() {
       return is3d ? depth : 0;
+    },
+    // Taille de l'espace (unités du moteur), voir worldSize.
+    get width() {
+      return width;
+    },
+    get height() {
+      return height;
     },
     get state() {
       return state;
