@@ -1,7 +1,16 @@
 // Réglage de la simulation.
 //
 // {
-//   epsilon:  nombre, majoration de la distance (évite la division par zéro),
+//   interaction: "rules" (par défaut) : forces de la matrice `rules`, dans la
+//             portée ; "gravity" : gravitation universelle (newtonienne) entre
+//             tous les corps, G·mi·mj/d², toujours attractive, portée
+//             illimitée, sans `rules` ni `range` (ignorées). Calcul direct sur
+//             toutes les paires : prévu pour quelques centaines de corps,
+//   G:        nombre > 0, constante de gravitation du mode "gravity" (1 par
+//             défaut),
+//   epsilon:  nombre, majoration de la distance (évite la division par zéro) ;
+//             en mode "gravity", adoucissement : d devient sqrt(d² + ε²)
+//             (à garder petit devant les distances entre corps),
 //   friction: nombre, facteur appliqué à la vitesse à chaque pas (1 = aucune perte),
 //   gravity:  nombre, accélération constante vers le bas en pixels par pas²,
 //             la même pour toutes les particules (négative : vers le haut ;
@@ -24,7 +33,7 @@
 //             ces corps (count >= bodies.length dans un préréglage) ; les
 //             suivantes sont tirées au hasard. Masse du corps absente : celle
 //             du type ; rayon absent : dérivé de la masse (masse / 2 + 2),
-//   rules:    { [nomDuType]: { [nomDeLAutreType]: g } },
+//   rules:    { [nomDuType]: { [nomDeLAutreType]: g } } (mode "rules"),
 // }
 //
 // rules[a][b] = g : coefficient appliqué aux particules du type a, du fait des

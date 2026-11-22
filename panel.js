@@ -6,6 +6,7 @@ import {
   addType,
   getRule,
   hasRandomMass,
+  isGravitation,
   needsRangeWarning,
   parseNumber,
   removeType,
@@ -14,6 +15,7 @@ import {
   setEdges,
   setEpsilon,
   setFriction,
+  setGravitationalConstant,
   setGravity,
   setMass,
   setRange,
@@ -289,6 +291,24 @@ export const createPanel = (
     changed();
   };
 
+  // Constante de gravitation G (mode gravitation universelle seulement).
+  const gravitation = isGravitation(settings);
+  const constant = numberInput({ id: "gravitational-constant", min: 0, value: show(settings.G ?? 1) });
+  constant.setAttribute("aria-label", "Constante de gravitation G");
+  const constantError = errorLine("gravitational-constant-error");
+  constant.oninput = () => {
+    const result = setGravitationalConstant(settings, constant.value);
+    constantError.textContent = result.ok
+      ? ""
+      : `${result.error} Valeur conservée : ${show(settings.G ?? 1)}.`;
+    if (result.ok) changed();
+  };
+  constant.onchange = () => {
+    if (!(parseNumber(constant.value) > 0) || !Number.isFinite(parseNumber(constant.value))) {
+      constant.value = show(settings.G ?? 1);
+    }
+  };
+
   const edgeButtons = [
     ["bounce", "Rebond", "La particule rebondit sur les bords du canevas"],
     ["wrap", "Traversée", "La particule ressort par le bord opposé"],
@@ -347,12 +367,23 @@ export const createPanel = (
   const physics = section(
     "Physique",
     "Appliqué dès le pas suivant, sans réinitialiser les particules. Chaque curseur a un champ pour la valeur exacte.",
-    field(
-      "Portée (px)",
-      el("div", { className: "slider" }, rangeSlider, range),
-      "Au-delà de cette distance, deux particules n'interagissent plus. Champ vide = illimitée (calcul beaucoup plus lent). Curseur : 5 à 2000 px, plus fin pour les petites portées.",
-    ),
-    warning,
+    ...(gravitation
+      ? [
+          field(
+            "Constante G",
+            constant,
+            "Gravitation universelle : chaque corps attire tous les autres, sans limite de distance, avec une force G·m₁·m₂/d². Plus G est grand, plus l'attraction est forte. Nombre supérieur à 0.",
+          ),
+          constantError,
+        ]
+      : [
+          field(
+            "Portée (px)",
+            el("div", { className: "slider" }, rangeSlider, range),
+            "Au-delà de cette distance, deux particules n'interagissent plus. Champ vide = illimitée (calcul beaucoup plus lent). Curseur : 5 à 2000 px, plus fin pour les petites portées.",
+          ),
+          warning,
+        ]),
     field(
       "Friction",
       el("div", { className: "slider" }, frictionSlider, friction),
@@ -361,11 +392,13 @@ export const createPanel = (
     field(
       "Epsilon (px)",
       epsilon,
-      "Ajouté à la distance entre deux particules dans le calcul de la force : plus petit, les rencontres proches sont plus violentes ; plus grand, les forces sont adoucies. Nombre supérieur à 0.",
+      gravitation
+        ? "Adoucissement : la distance d est remplacée par √(d² + ε²), ce qui évite une force infinie quand deux corps se touchent. Gardez-le petit devant les distances entre corps pour ne pas fausser les orbites. Nombre supérieur à 0."
+        : "Ajouté à la distance entre deux particules dans le calcul de la force : plus petit, les rencontres proches sont plus violentes ; plus grand, les forces sont adoucies. Nombre supérieur à 0.",
     ),
     epsilonError,
     field(
-      "Gravité (px/pas²)",
+      "Gravité verticale (px/pas²)",
       el("div", { className: "slider" }, gravitySlider, gravity),
       "Accélération constante ajoutée à chaque pas à toutes les particules, vers le bas (négative : vers le haut). 0 = aucune. Curseur : −0,2 à 0,2 ; le champ accepte toute valeur.",
     ),
@@ -637,11 +670,16 @@ export const createPanel = (
     "Changer un nombre ajoute ou retire des particules de ce type, sans toucher aux autres. Changer une masse l'applique aussi aux particules déjà présentes (taille comprise), sans les déplacer.",
     typesBox,
   );
-  const matrix = section(
-    "Interactions",
-    "Chaque ligne est le type qui subit la force, chaque colonne celui qui l'exerce. Cliquez sur une case pour la régler.",
-    matrixBox,
-  );
+  const matrix = gravitation
+    ? section(
+        "Interactions",
+        "Gravitation universelle : tous les corps s'attirent selon leur masse, la matrice de règles ne sert pas. Réglez la constante G dans « Physique ».",
+      )
+    : section(
+        "Interactions",
+        "Chaque ligne est le type qui subit la force, chaque colonne celui qui l'exerce. Cliquez sur une case pour la régler.",
+        matrixBox,
+      );
 
   // --- Ajout d'un type ---
   const newName = el("input", {
@@ -684,7 +722,9 @@ export const createPanel = (
   };
   const adder = section(
     "Nouveau type",
-    "Ses règles démarrent à 0 : aucune interaction, à régler ensuite dans la grille.",
+    gravitation
+      ? "Ses particules attirent et sont attirées par tous les corps, selon leur masse."
+      : "Ses règles démarrent à 0 : aucune interaction, à régler ensuite dans la grille.",
     el(
       "div",
       { className: "grid2" },
