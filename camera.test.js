@@ -7,6 +7,7 @@ import {
   MIN_ZOOM,
   createCamera,
   orbit,
+  pan,
   project,
   resetCamera,
   viewProjection,
@@ -99,4 +100,18 @@ test("glisser vers la droite amène la face avant vers la droite", () => {
   orbit(camera, 30, 0);
   assert.ok(at(camera, 400, 300, 0).x > 400);
   assert.ok(at(camera, 400, 300, 600).x < 400);
+});
+
+test("déplacement latéral : la boîte suit le glisser, la réinitialisation le remet", () => {
+  const camera = createCamera();
+  const before = at(camera, 400, 300, 300);
+  pan(camera, 50, -20, box);
+  const after = at(camera, 400, 300, 300);
+  assert.ok(near(after.x - before.x, 50, 0.05), String(after.x - before.x));
+  assert.ok(near(after.y - before.y, -20, 0.05), String(after.y - before.y));
+  // Le déplacement est borné.
+  pan(camera, 1e7, 0, box);
+  assert.ok(camera.panX <= 800);
+  resetCamera(camera);
+  assert.deepEqual(camera, { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0 });
 });

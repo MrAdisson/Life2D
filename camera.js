@@ -1,4 +1,4 @@
-// Caméra orbitale de la vue 3D : tourne autour du centre de la boîte de
+// Caméra orbitale de la vue 3D (avec déplacement latéral) : tourne autour du centre de la boîte de
 // simulation (largeur × hauteur × profondeur). Sans accès à la page : calculs
 // seulement, testables avec node --test.
 //
@@ -14,12 +14,14 @@ export const MAX_ZOOM = 5;
 // Radians par pixel glissé.
 export const ORBIT_SPEED = 0.01;
 
-export const createCamera = () => ({ yaw: 0, pitch: 0, zoom: 1 });
+export const createCamera = () => ({ yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0 });
 
 export const resetCamera = (camera) => {
   camera.yaw = 0;
   camera.pitch = 0;
   camera.zoom = 1;
+  camera.panX = 0;
+  camera.panY = 0;
   return camera;
 };
 
@@ -39,6 +41,20 @@ export const orbit = (camera, dx, dy) => {
 export const zoomBy = (camera, factor) => {
   if (!(factor > 0)) return camera;
   camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * factor));
+  return camera;
+};
+
+// Déplacement latéral : glisser de (dx, dy) pixels écran déplace la scène du
+// même nombre de pixels au centre de la boîte (la boîte suit le doigt). Le
+// décalage est dans le plan de la vue, en unités de la simulation, borné à la
+// plus grande dimension de la boîte.
+export const pan = (camera, dx, dy, box) => {
+  const perPixel =
+    baseDistance(box) / camera.zoom / ((FOCAL * box.height) / 2);
+  const limit = Math.max(box.width, box.height, box.depth);
+  const clamp = (v) => Math.max(-limit, Math.min(limit, v));
+  camera.panX = clamp((camera.panX ?? 0) + dx * perPixel);
+  camera.panY = clamp((camera.panY ?? 0) - dy * perPixel);
   return camera;
 };
 
@@ -88,7 +104,9 @@ export const viewProjection = (camera, { width, height, depth }) => {
     [0, 1, 2, 3].map(
       (k) =>
         row[0] * A[0][k] + row[1] * A[1][k] + row[2] * A[2][k] +
-        (i === 2 && k === 3 ? distance : 0),
+        (i === 2 && k === 3 ? distance : 0) +
+        (k === 3 && i === 0 ? camera.panX ?? 0 : 0) +
+        (k === 3 && i === 1 ? camera.panY ?? 0 : 0),
     ),
   );
   // Projection : clip = (f/aspect·vx, f·vy, a·vz + b, vz).

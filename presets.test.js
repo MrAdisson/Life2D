@@ -133,3 +133,9 @@ test("`dimensions` (2 ou 3) et `depth` (> 0) sont acceptés, le reste refusé", 
     assert.match(validatePreset(withSettings({ dimensions: 3, depth })).join(), /depth/);
   }
 });
+
+test("au moins un préréglage utilise la 3D, accessible depuis la galerie", () => {
+  const in3d = files.filter((f) => load(f).settings.dimensions === 3);
+  assert.ok(in3d.length >= 1);
+  for (const f of in3d) assert.deepEqual(validatePreset(load(f)), [], f);
+});

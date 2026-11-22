@@ -39,11 +39,14 @@ const launch = (settings, { edit = false } = {}) => {
   const camera = createCamera();
   canvas.tabIndex = 0;
   canvas.setAttribute("aria-label", "Simulation");
-  attachOrbitControls(canvas, camera, { enabled: () => !!renderer?.view3d });
+  attachOrbitControls(canvas, camera, {
+    enabled: () => !!renderer?.view3d,
+    box: () => renderer.box,
+  });
   const hint = document.createElement("div");
   hint.className = "view-hint";
   hint.textContent =
-    "Vue 3D : glisser pour tourner · molette pour zoomer · double-clic pour recentrer (clavier : flèches, + / −, 0)";
+    "Vue 3D : glisser pour tourner · clic droit ou deux doigts pour déplacer · molette ou pincer pour zoomer · double-clic pour recentrer (clavier : flèches, Maj + flèches, + / −, 0)";
   hint.hidden = true;
   document.body.appendChild(hint);
   const syncView = () => {
