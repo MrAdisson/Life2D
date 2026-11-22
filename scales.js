@@ -54,3 +54,22 @@ export const sliderFromRange = (range) => {
     (Math.log(r / RANGE_MIN) / Math.log(RANGE_MAX / RANGE_MIN)) * SLIDER_STEPS,
   );
 };
+
+// Vitesse de simulation : échelle logarithmique de SPEED_MIN à SPEED_MAX (×),
+// quatre décades ; 1× à un quart de la course.
+export const SPEED_MIN = 0.1;
+export const SPEED_MAX = 1000;
+
+export const speedFromSlider = (position) => {
+  const t = Math.min(1, Math.max(0, position / SLIDER_STEPS));
+  if (t === 0) return SPEED_MIN;
+  if (t === 1) return SPEED_MAX;
+  return significant(SPEED_MIN * (SPEED_MAX / SPEED_MIN) ** t, 2);
+};
+
+export const sliderFromSpeed = (speed) => {
+  const v = Math.min(SPEED_MAX, Math.max(SPEED_MIN, Number(speed) || 1));
+  return Math.round(
+    (Math.log(v / SPEED_MIN) / Math.log(SPEED_MAX / SPEED_MIN)) * SLIDER_STEPS,
+  );
+};
