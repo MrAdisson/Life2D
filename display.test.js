@@ -133,3 +133,27 @@ test("validation de display et emissive dans un préréglage", () => {
   assert.match(errors, /trails/);
   assert.match(errors, /emissive/);
 });
+
+test("réglage par corps : sizeFactor et label dans le protocole et la validation", () => {
+  const messages = [];
+  const port = { postMessage: (m) => messages.push(m) };
+  attachSimulation(port);
+  const settings = {
+    interaction: "gravity", epsilon: 1, friction: 1, dimensions: 3, rules: {},
+    types: [{ name: "a", color: "red", count: 2, mass: 1,
+      bodies: [{ name: "X", position: [1, 1, 1], velocity: [0, 0, 0], sizeFactor: 3, label: false }] }],
+  };
+  port.onmessage({ data: { type: "init", settings, width: 100, height: 100 } });
+  const init = messages.find((m) => m.type === "init");
+  const k = init.names.indexOf("X");
+  assert.equal(init.sizes[k], 3);
+  assert.equal(init.labelled[k], 0);
+  assert.equal(init.sizes[1 - k], 1);
+  assert.equal(init.labelled[1 - k], 1);
+  const preset = JSON.parse(readFileSync("presets/systeme-solaire.json", "utf8"));
+  preset.settings.types[1].bodies[0].sizeFactor = 0;
+  preset.settings.types[1].bodies[0].label = "non";
+  const errors = validatePreset(preset).join("\n");
+  assert.match(errors, /sizeFactor/);
+  assert.match(errors, /label/);
+});

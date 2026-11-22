@@ -10,6 +10,9 @@
 //                   names : nom de chaque particule (nom du corps explicite,
 //                   sinon null) ; emissive : 1 si la particule est émissive
 //                   (corps ou type `emissive: true`), sinon 0 ;
+//                   sizes : facteur d'affichage propre à chaque particule
+//                   (`sizeFactor` du corps, 1 par défaut) ; labelled : 0 si
+//                   le corps masque son étiquette (`label: false`), sinon 1 ;
 //                   types, radii : type et rayon de chaque particule, dans
 //                   l'ordre d'affichage (les plus massives d'abord).
 //   page -> worker  { type: "step", positions, generation }
@@ -73,6 +76,13 @@ export const attachSimulation = (port, { random } = {}) => {
       const name = simulation.bodyAt(i)?.name;
       return typeof name === "string" && name.trim() !== "" ? name : null;
     });
+    const sizes = Float32Array.from(drawOrder, (i) => {
+      const f = simulation.bodyAt(i)?.sizeFactor;
+      return f > 0 ? f : 1;
+    });
+    const labelled = Uint8Array.from(drawOrder, (i) =>
+      simulation.bodyAt(i)?.label === false ? 0 : 1,
+    );
     const emissive = Uint8Array.from(drawOrder, (i) => {
       const flag = simulation.bodyAt(i)?.emissive ?? settings.types[typeIndex[i]].emissive;
       return flag === true ? 1 : 0;
@@ -89,8 +99,10 @@ export const attachSimulation = (port, { random } = {}) => {
         radii,
         names,
         emissive,
+        sizes,
+        labelled,
       },
-      [types.buffer, radii.buffer, emissive.buffer],
+      [types.buffer, radii.buffer, emissive.buffer, sizes.buffer, labelled.buffer],
     );
     send(new Float32Array(count * POSITION_STRIDE));
   };

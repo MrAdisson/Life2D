@@ -60,13 +60,14 @@ const launch = (settings, { edit = false } = {}) => {
   const labelLayer = document.createElement("div");
   labelLayer.className = "labels";
   document.body.appendChild(labelLayer);
+  let bodyLabelled = []; // 0 : le corps masque son étiquette
   let bodyNames = []; // nom de chaque particule (ordre d'affichage) ou null
   let labelNodes = []; // [indice, élément]
   const buildLabels = () => {
     labelLayer.replaceChildren();
     labelNodes = [];
     bodyNames.forEach((name, k) => {
-      if (!name) return;
+      if (!name || bodyLabelled[k] === 0) return;
       const node = document.createElement("div");
       node.className = "label";
       node.textContent = name;
@@ -165,6 +166,7 @@ const launch = (settings, { edit = false } = {}) => {
       received = null; // tampon de l'ancienne taille
       uploaded = false;
       bodyNames = data.names ?? [];
+      bodyLabelled = data.labelled ?? [];
       buildLabels();
       const kept = followName === null ? -1 : bodyNames.indexOf(followName);
       camera.follow = kept >= 0 ? kept : null;

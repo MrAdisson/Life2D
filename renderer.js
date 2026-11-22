@@ -22,6 +22,7 @@ in vec3 a_position;
 in float a_radius;
 in vec4 a_color;
 in float a_emissive;
+in float a_size;
 uniform vec2 u_size;
 uniform bool u_view3d;
 // Vue 3D : matrice de la caméra orbitale (camera.js), focale en pixels et
@@ -70,7 +71,7 @@ void main() {
     vec3 d = u_sun - (u_view * vec4(a_position, 1.0)).xyz;
     if (length(d) > 0.0001) v_light = normalize(vec3(d.xy, -d.z));
   }
-  float radius = a_radius * u_scale * u_focal / clip.w;
+  float radius = a_radius * a_size * u_scale * u_focal / clip.w;
   vec2 local = a_corner * (radius + 1.0);
   v_local = local;
   v_radius = radius;
@@ -259,6 +260,7 @@ export const createRenderer = (canvas, initial) => {
     divisor: 1,
     normalized: true,
   });
+  const sizeBuffer = attribute("a_size", 1, gl.FLOAT, { divisor: 1 });
   const emissiveBuffer = attribute("a_emissive", 1, gl.UNSIGNED_BYTE, { divisor: 1 });
   // Tampon de positions : x, y, z par particule (z = 0 en 2D).
   const positionBuffer = attribute("a_position", 3, gl.FLOAT, {
@@ -285,6 +287,7 @@ export const createRenderer = (canvas, initial) => {
   let readDisplay = () => undefined;
   let current = new Float32Array(0); // dernières positions reçues
   let radii = new Float32Array(0);
+  let sizes = new Float32Array(0);
   let colors = []; // [r, g, b, a] (0 à 1) de chaque particule
   let sun = -1; // indice du premier astre émissif
   let trails = null;
@@ -309,6 +312,9 @@ export const createRenderer = (canvas, initial) => {
       Array.from(bytes.subarray(k * 4, k * 4 + 4), (v) => v / 255),
     );
     radii = particles.radii;
+    sizes = particles.sizes ?? new Float32Array(count).fill(1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, sizes, gl.STATIC_DRAW);
     const emissive = particles.emissive ?? new Uint8Array(count);
     sun = emissive.indexOf(1);
     current = new Float32Array(count * POSITION_STRIDE);
@@ -369,7 +375,7 @@ export const createRenderer = (canvas, initial) => {
       return {
         x: ((cx / w + 1) / 2) * canvas.width,
         y: ((1 - cy / w) / 2) * canvas.height,
-        radius: (radii[k] * lastScale * lastView.focal) / w,
+        radius: (radii[k] * sizes[k] * lastScale * lastView.focal) / w,
       };
     },
     // positions : [x0, y0, z0, x1, y1, z1, ...] dans l'ordre d'affichage.

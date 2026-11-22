@@ -45,6 +45,12 @@ const validateBodies = (t, at, errors) => {
     if (b.emissive !== undefined && typeof b.emissive !== "boolean") {
       errors.push(`\`${bt}.emissive\` : booléen attendu`);
     }
+    if (b.label !== undefined && typeof b.label !== "boolean") {
+      errors.push(`\`${bt}.label\` : booléen attendu`);
+    }
+    if (b.sizeFactor !== undefined && !(isNumber(b.sizeFactor) && b.sizeFactor > 0)) {
+      errors.push(`\`${bt}.sizeFactor\` : nombre > 0 attendu`);
+    }
     for (const field of ["mass", "radius"]) {
       if (b[field] !== undefined && !(isNumber(b[field]) && b[field] > 0)) {
         errors.push(`\`${bt}.${field}\` : nombre > 0 attendu`);
