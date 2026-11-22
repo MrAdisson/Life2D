@@ -641,3 +641,24 @@ button.back {
 .panel select {
   width: 100%;
 }
+/* Taille de la boîte : largeur, hauteur, profondeur sur une ligne. */
+.panel .size-row {
+  display: flex;
+  gap: 8px;
+}
+.panel .size-row .size-field {
+  flex: 1;
+  min-width: 0;
+  margin: 2px 0 6px;
+}
+.panel .size-row .field-label {
+  font-weight: 400;
+  font-size: 0.9em;
+}
+.panel #world-fit {
+  align-self: flex-start;
+}
+/* L'attribut hidden l'emporte sur l'affichage des champs du panneau. */
+.panel .field[hidden] {
+  display: none;
+}

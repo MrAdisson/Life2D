@@ -30,7 +30,8 @@
 //                   types ou leurs nombres changent, le worker renvoie "init"
 //                   puis "positions" (nouvelle génération) ; si `dimensions`
 //                   change, la simulation repart d'un nouveau tirage (même
-//                   réponse)
+//                   réponse) ; si la taille de l'espace change (`width`,
+//                   `height`, `depth`), même réponse, sans nouveau tirage
 //   page -> worker  { type: "reseed" }   nouveau tirage des positions (même
 //                   réponse que ci-dessus) ; les corps explicites (`bodies`)
 //                   reprennent leur position et leur vitesse de départ
@@ -130,7 +131,12 @@ export const attachSimulation = (port, { random } = {}) => {
       if (dimensionsOf(settings) !== simulation.dimensions) {
         create();
         sendInit();
-      } else if (simulation.sync()) sendInit();
+      } else {
+        // Taille de l'espace ou types changés : nouvelle description.
+        const resized = simulation.refreshSize();
+        const synced = simulation.sync();
+        if (resized || synced) sendInit();
+      }
     } else if (data.type === "reseed") {
       simulation.reseed();
       sendInit();

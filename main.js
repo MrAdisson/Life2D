@@ -230,6 +230,7 @@ const launch = (settings, { edit = false } = {}) => {
   const panel = createPanel(document.body, {
     settings,
     open: edit,
+    viewport: { width: canvas.width, height: canvas.height },
     onChange: sendSettings,
     onReseed: () => worker.postMessage({ type: "reseed" }),
     onPause: (value) => {

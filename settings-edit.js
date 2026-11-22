@@ -75,7 +75,9 @@ export const setGravity = (settings, value) => {
 };
 
 // Masse fixe d'un type existant : nombre > 0, appliquée aussi à ses particules
-// déjà présentes (par le moteur). Même retour que setEpsilon.
+// déjà présentes (par le moteur), corps placés compris (leur masse propre est
+// remplacée ; position, vitesse et rayon d'affichage sont gardés). Même retour
+// que setEpsilon.
 export const setMass = (settings, name, value) => {
   const type = settings.types.find((t) => t.name === name);
   if (!type) return { ok: false, error: "Type inconnu." };
@@ -84,11 +86,59 @@ export const setMass = (settings, name, value) => {
     return { ok: false, error: "La masse doit être un nombre supérieur à 0." };
   }
   type.mass = n;
+  if (Array.isArray(type.bodies)) {
+    type.bodies = type.bodies.map((b) => (b?.mass > 0 ? { ...b, mass: n } : b));
+  }
   return { ok: true };
 };
 
-// Masse aléatoire : masse absente ou 0 (chaque particule tire la sienne).
-export const hasRandomMass = (type) => !(type.mass > 0);
+// Masse d'un type telle que le panneau l'affiche : { kind, value }.
+//   "bodies" : toutes ses particules sont des corps placés de même masse
+//              (value = cette masse ; préréglage « Système solaire ») ;
+//   "mixed" :  toutes sont des corps placés, de masses différentes ;
+//   "fixed" :  masse du type (value) ;
+//   "random" : chaque particule tire sa masse.
+export const typeMass = (type) => {
+  const bodies = Array.isArray(type.bodies) ? type.bodies.slice(0, type.count) : [];
+  if (type.count > 0 && bodies.length >= type.count && bodies.every((b) => b?.mass > 0)) {
+    const first = bodies[0].mass;
+    return bodies.every((b) => b.mass === first)
+      ? { kind: "bodies", value: first }
+      : { kind: "mixed", value: null };
+  }
+  if (type.mass > 0) return { kind: "fixed", value: type.mass };
+  return { kind: "random", value: null };
+};
+
+// Masse aléatoire : ni masse de type, ni corps placés qui en donnent une.
+export const hasRandomMass = (type) => typeMass(type).kind === "random";
+
+// Taille de l'espace (unités du moteur, pixels pour un préréglage sans taille
+// fixée) : `width`, `height` ou `depth`, nombre de MIN_WORLD_SIZE à
+// MAX_WORLD_SIZE. Même retour que setEpsilon.
+export const MIN_WORLD_SIZE = 50;
+export const MAX_WORLD_SIZE = 100000;
+const AXIS_LABEL = { width: "La largeur", height: "La hauteur", depth: "La profondeur" };
+export const setWorldSize = (settings, axis, value) => {
+  if (!(axis in AXIS_LABEL)) return { ok: false, error: "Dimension inconnue." };
+  const n = parseNumber(value);
+  if (!(n >= MIN_WORLD_SIZE && n <= MAX_WORLD_SIZE)) {
+    return {
+      ok: false,
+      error: `${AXIS_LABEL[axis]} doit être un nombre de ${MIN_WORLD_SIZE} à ${MAX_WORLD_SIZE}.`,
+    };
+  }
+  settings[axis] = n;
+  return { ok: true };
+};
+
+// Revient à la taille de la fenêtre (largeur, hauteur) et à la profondeur par
+// défaut (la plus petite des deux).
+export const fitWorldToWindow = (settings) => {
+  delete settings.width;
+  delete settings.height;
+  delete settings.depth;
+};
 
 export const totalParticles = (settings) =>
   settings.types.reduce((n, t) => n + t.count, 0);

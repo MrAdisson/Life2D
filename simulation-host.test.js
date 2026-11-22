@@ -223,3 +223,27 @@ test("worker : taille de l'espace fixée par le réglage (`width`, `height`) dan
   assert.equal(other.sent[0].data.width, 800);
   assert.equal(other.sent[0].data.height, 600);
 });
+
+test("worker : changer la taille de l'espace renvoie « init » sans nouveau tirage", () => {
+  const { port, sent, send } = fakePort();
+  attachSimulation(port, { random: () => 0.5 });
+  const settings = {
+    interaction: "gravity", epsilon: 1, friction: 1, dimensions: 2,
+    types: [{ name: "a", color: "red", count: 1, mass: 1,
+      bodies: [{ position: [50, 40], velocity: [1, 0] }] }],
+  };
+  send({ type: "init", settings, width: 800, height: 600 });
+  send({ type: "step", positions: new Float32Array(3), generation: 1 });
+  const before = sent.length;
+  send({ type: "settings", settings: { ...settings, width: 300, height: 200 } });
+  const [init, positions] = sent.slice(before).map((m) => m.data);
+  assert.equal(init.type, "init");
+  assert.deepEqual([init.width, init.height], [300, 200]);
+  assert.equal(positions.type, "positions");
+  // Pas de nouveau tirage : le corps a avancé d'un pas, il n'est pas revenu au départ.
+  assert.ok(positions.positions[0] > 50);
+  // Même taille renvoyée : rien de nouveau.
+  const after = sent.length;
+  send({ type: "settings", settings: { ...settings, width: 300, height: 200 } });
+  assert.equal(sent.length, after);
+});
