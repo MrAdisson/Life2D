@@ -10,6 +10,7 @@
     "friction": 0.995,
     "range": 220,
     "edges": "bounce",
+    "collisions": true,
     "types": [
       { "name": "étoile", "color": "#ffd27a", "count": 30, "mass": 40 },
       { "name": "poussière", "color": "#8fb8ff", "count": 3000, "mass": 2 }

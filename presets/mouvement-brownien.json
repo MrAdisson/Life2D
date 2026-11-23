@@ -5,9 +5,10 @@
   "vignette": "vignettes/mouvement-brownien.svg",
   "settings": {
     "epsilon": 10,
-    "friction": 0.999,
+    "friction": 0.998,
     "range": 60,
     "edges": "bounce",
+    "collisions": true,
     "types": [
       {
         "name": "molécule",

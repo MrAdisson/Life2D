@@ -203,6 +203,12 @@ export const setEdges = (settings, value) => {
   settings.edges = value === "wrap" ? "wrap" : "bounce";
 };
 
+// Collisions entre particules : activées seulement par `true` (false sinon,
+// écrit explicitement pour que le Worker reçoive le changement).
+export const setCollisions = (settings, value) => {
+  settings.collisions = value === true;
+};
+
 // 2 (plan, par défaut) ou 3 (volume).
 export const setDimensions = (settings, value) => {
   settings.dimensions = Number(value) === 3 ? 3 : 2;
