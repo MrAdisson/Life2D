@@ -1,6 +1,7 @@
 {
   "title": "Cellules et membranes",
   "description": "Les noyaux attirent les particules de membrane, qui se repoussent entre elles. Chaque noyau garde ainsi autour de lui une petite couronne de membrane, ébauche de cellule.",
+  "category": "vivant",
   "vignette": "vignettes/cellules-membranes.svg",
   "settings": {
     "epsilon": 10,
@@ -10,13 +11,13 @@
       {
         "name": "noyau",
         "color": "#ff6b8a",
-        "count": 40,
+        "count": 120,
         "mass": 8
       },
       {
         "name": "membrane",
         "color": "#7be3a0",
-        "count": 800,
+        "count": 2400,
         "mass": 2
       }
     ],

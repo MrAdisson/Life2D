@@ -1,7 +1,8 @@
 // Préréglages : validation d'un fichier de `presets/` (sans accès à la page ni
 // au système de fichiers, donc testable avec node --test).
 //
-// Forme d'un préréglage : { title, description, vignette, settings } où
+// Forme d'un préréglage : { title, description, category, vignette, settings } où
+// category est l'identifiant d'une catégorie de CATEGORIES (liste fermée) et
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
 // edges, gravity, dimensions, depth, width et height facultatifs ; chaque type peut lister
 // des corps explicites `bodies` ; interaction, G, dt et substeps facultatifs). En mode
@@ -17,6 +18,17 @@ import {
 } from "./display.js";
 import { MAX_COUNT, MAX_SUBSTEPS } from "./settings-edit.js";
 import { MAX_ZOOM, MIN_ZOOM } from "./camera.js";
+
+// Catégories de la galerie, dans l'ordre d'affichage des sections.
+export const CATEGORIES = [
+  { id: "base", title: "Pour commencer" },
+  { id: "astronomie", title: "Astronomie" },
+  { id: "physique", title: "Physique" },
+  { id: "chimie", title: "Chimie et liquides" },
+  { id: "vivant", title: "Vivant et émergent" },
+  { id: "esthetique", title: "Esthétique" },
+];
+const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -101,6 +113,13 @@ export const validatePreset = (preset) => {
   if (!isText(preset.title)) errors.push("`title` manquant ou vide");
   if (!isText(preset.description)) errors.push("`description` manquante ou vide");
   if (!isText(preset.vignette)) errors.push("`vignette` manquante ou vide");
+  if (!CATEGORY_IDS.includes(preset.category)) {
+    errors.push(
+      preset.category === undefined
+        ? `\`category\` manquante (une de : ${CATEGORY_IDS.join(", ")})`
+        : `\`category\` : « ${preset.category} » inconnue (une de : ${CATEGORY_IDS.join(", ")})`,
+    );
+  }
   const s = preset.settings;
   if (!isObject(s)) {
     errors.push("`settings` manquant (objet attendu)");
@@ -211,7 +230,7 @@ export const validatePreset = (preset) => {
 };
 
 // entries : [{ file, text }] (contenu brut des fichiers JSON). Renvoie
-// { presets: [{ file, title, description, vignette, settings }],
+// { presets: [{ file, title, description, category, vignette, settings }],
 //   errors: [{ file, messages }] } : un fichier invalide n'empêche pas les autres.
 export const parsePresets = (entries) => {
   const presets = [];
@@ -231,3 +250,15 @@ export const parsePresets = (entries) => {
   presets.sort((a, b) => a.title.localeCompare(b.title, "fr"));
   return { presets, errors };
 };
+
+// Préréglages valides regroupés par catégorie, dans l'ordre de CATEGORIES ;
+// les catégories sans préréglage sont omises, chaque groupe est trié par titre.
+// Renvoie [{ id, title, presets }].
+export const groupByCategory = (presets) =>
+  CATEGORIES.map(({ id, title }) => ({
+    id,
+    title,
+    presets: presets
+      .filter((p) => p.category === id)
+      .sort((a, b) => a.title.localeCompare(b.title, "fr")),
+  })).filter((group) => group.presets.length > 0);

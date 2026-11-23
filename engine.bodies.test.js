@@ -161,24 +161,30 @@ test("nouvelle masse fixe du type : un corps garde sa masse et son rayon propres
 
 // Empreintes de l'état (5 pas, nouveau tirage entre les deux) calculées avec
 // le moteur d'avant LIFE-13 : les préréglages existants restent identiques au
-// bit près.
+// bit près. LIFE-23 a changé les nombres de particules de la plupart des
+// préréglages et en a ajouté : leurs empreintes sont recalculées avec le
+// moteur actuel (celles de « Cristal et impuretés » et « Quatre familles »,
+// inchangés, sont toujours celles d'avant LIFE-13).
 const FINGERPRINTS = {
-  "amas-gravitationnels.json": "da91e20da4b7308e",
-  "cellules-membranes.json": "51c67e030400073f",
-  "chasseurs-proies.json": "bc87ea07c22d23a9",
+  "amas-gravitationnels.json": "3955538e49d407f2",
+  "cellules-membranes.json": "0ddc6c5a2e656d1f",
+  "chasseurs-proies.json": "db3659cc18a6af6e",
   "cristal-et-impuretes.json": "1ba781a4ce82b613",
-  "cristallisation.json": "2ec30e227e019c83",
-  "emulsion.json": "62aeefc296e3e919",
-  "feu-d-artifice.json": "3d5841c60ee1d01e",
-  "huile-et-eau.json": "276528d906176430",
-  "lucioles.json": "dff44da72cfd59ca",
-  "mousse.json": "919904f16986d3b8",
-  "mouvement-brownien.json": "133c8f617a794f66",
-  "nageurs.json": "fb7eb05a327c3a48",
-  "nebuleuse.json": "3f6832886246a16e",
-  "orbites.json": "cb230d4be8f5be97",
+  "cristallisation.json": "419a8d6986d081f7",
+  "emulsion.json": "ae0d37e249cf9a8d",
+  "feu-d-artifice.json": "77d717367e2667a7",
+  "gouttes-en-apesanteur.json": "e22a2cb3d4f8ce8a",
+  "huile-et-eau.json": "d830a21aede02c68",
+  "lucioles.json": "ff8e7d8087587f17",
+  "mousse.json": "15a3b9a548c8ca83",
+  "mouvement-brownien.json": "ded5956580f83a03",
+  "nageurs.json": "6ec9b04ec60e10f5",
+  "nebuleuse.json": "5fa72296ce89f1c6",
+  "orbites.json": "80f377a701662f63",
+  "page-blanche.json": "6fdb69592e1686bb",
   "quatre-familles.json": "dc22b060f57c7ae0",
-  "trois-tribus.json": "d31fde2945f7feb6",
+  "ronde-des-cinq-tribus.json": "6fcf1bb726bde225",
+  "trois-tribus.json": "2d316e7fca9fcbce",
 };
 
 const fingerprint = (settings) => {

@@ -1,14 +1,18 @@
 {
   "title": "Amas gravitationnels",
-  "description": "Toutes les particules s'attirent et des étoiles lourdes dominent la poussière légère. La poussière tombe vers elles et s'agglomère en amas, comme la matière dans l'Univers.",
+  "description": "Toutes les particules s'attirent et des étoiles lourdes dominent la poussière légère, qui tombe vers elles et s'agglomère en amas, comme la matière dans l'Univers. Le préréglage démarre en 3D (faites tourner et zoomez la caméra) et le commutateur 2D / 3D du panneau le fait passer à plat.",
+  "category": "astronomie",
   "vignette": "vignettes/amas-gravitationnels.svg",
   "settings": {
+    "dimensions": 3,
+    "depth": 700,
     "epsilon": 10,
     "friction": 0.995,
     "range": 220,
+    "edges": "bounce",
     "types": [
-      { "name": "étoile", "color": "#ffd27a", "count": 25, "mass": 40 },
-      { "name": "poussière", "color": "#8fb8ff", "count": 1800, "mass": 2 }
+      { "name": "étoile", "color": "#ffd27a", "count": 30, "mass": 40 },
+      { "name": "poussière", "color": "#8fb8ff", "count": 3000, "mass": 2 }
     ],
     "rules": {
       "étoile": { "étoile": -0.4, "poussière": -0.05 },

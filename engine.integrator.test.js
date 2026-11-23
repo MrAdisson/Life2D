@@ -335,6 +335,7 @@ test("validation : dt et substeps facultatifs, bornés", () => {
   const preset = (patch) => ({
     title: "Orbite",
     description: "Deux corps",
+    category: "astronomie",
     vignette: "orbite.svg",
     settings: { ...orbit(), ...patch },
   });

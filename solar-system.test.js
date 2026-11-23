@@ -145,6 +145,7 @@ test("données : Soleil + 8 planètes, Pluton en option, sans Lune ; bloc valide
   const preset = {
     title: "Essai",
     description: "Essai.",
+    category: "astronomie",
     vignette: "vignettes/essai.svg",
     settings: { interaction: "gravity", friction: 1, dimensions: 3, ...block },
   };

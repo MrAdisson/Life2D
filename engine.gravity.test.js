@@ -242,6 +242,7 @@ test("mode des règles explicite : identique au bit près au réglage sans `inte
 const preset = (settings) => ({
   title: "Orbite",
   description: "Deux corps",
+  category: "astronomie",
   vignette: "orbite.svg",
   settings,
 });

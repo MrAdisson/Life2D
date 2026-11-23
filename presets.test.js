@@ -1,15 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { parsePresets, validatePreset } from "./presets.js";
+import { CATEGORIES, groupByCategory, parsePresets, validatePreset } from "./presets.js";
 import { startSettings } from "./settings.js";
 import { createSimulation } from "./engine.js";
 
 const files = readdirSync("presets").filter((f) => f.endsWith(".json"));
 const load = (f) => JSON.parse(readFileSync(`presets/${f}`, "utf8"));
 
-test("au moins 16 préréglages, tous valides", () => {
-  assert.ok(files.length >= 16);
+// LIFE-23 : 18 − 1 (fusion des amas 2D / 3D) + 3 « effet wow » + page blanche.
+test("21 préréglages, tous valides", () => {
+  assert.equal(files.length, 21);
   for (const f of files) assert.deepEqual(validatePreset(load(f)), [], f);
 });
 
@@ -67,7 +68,7 @@ test("chaque préréglage tient dans le budget de 50 ms par pas", () => {
 });
 
 test("un fichier invalide n'empêche pas les autres", () => {
-  const good = readFileSync(`presets/${files[0]}`, "utf8");
+  const good = readFileSync("presets/quatre-familles.json", "utf8");
   const bad = JSON.parse(good);
   bad.settings.rules.inconnu = { [bad.settings.types[0].name]: 1 };
   const { presets, errors } = parsePresets([
@@ -82,7 +83,7 @@ test("un fichier invalide n'empêche pas les autres", () => {
 });
 
 test("types et règles incohérents sont refusés", () => {
-  const base = () => structuredClone(load(files[0]));
+  const base = () => structuredClone(load("quatre-familles.json"));
   const cases = {
     "type en double": (p) => p.settings.types.push({ ...p.settings.types[0] }),
     "nombre négatif": (p) => (p.settings.types[0].count = -1),
@@ -110,7 +111,7 @@ test("réglage de départ : préréglage « Quatre familles », portée finie de
 
 test("aucun préréglage ne démarre avec une portée illimitée", () => {
   for (const f of files) assert.ok(Number.isFinite(load(f).settings.range), f);
-  const p = structuredClone(load(files[0]));
+  const p = structuredClone(load("quatre-familles.json"));
   delete p.settings.range;
   assert.notDeepEqual(validatePreset(p), []);
   p.settings.range = 50;
@@ -131,6 +132,122 @@ test("`dimensions` (2 ou 3) et `depth` (> 0) sont acceptés, le reste refusé", 
   }
   for (const depth of [0, -5, "400", Infinity]) {
     assert.match(validatePreset(withSettings({ dimensions: 3, depth })).join(), /depth/);
+  }
+});
+
+// LIFE-23 : catégories (liste fermée), galerie groupée par catégorie.
+test("chaque préréglage a une catégorie de la liste fermée, aucune catégorie vide", () => {
+  const ids = CATEGORIES.map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length);
+  const used = new Set(files.map((f) => load(f).category));
+  for (const f of files) assert.ok(ids.includes(load(f).category), f);
+  for (const id of ids) assert.ok(used.has(id), `catégorie ${id} sans préréglage`);
+});
+
+test("catégorie manquante ou inconnue : carte d'erreur, sans bloquer les autres", () => {
+  const good = load("orbites.json");
+  const { category, ...missing } = good;
+  assert.equal(category, "astronomie");
+  const unknown = { ...good, title: "Autre", category: "cuisine" };
+  const { presets, errors } = parsePresets([
+    { file: "sans.json", text: JSON.stringify(missing) },
+    { file: "bon.json", text: JSON.stringify(good) },
+    { file: "inconnue.json", text: JSON.stringify(unknown) },
+    { file: "vide.json", text: JSON.stringify({ ...good, category: "" }) },
+  ]);
+  assert.deepEqual(presets.map((p) => p.file), ["bon.json"]);
+  assert.deepEqual(errors.map((e) => e.file), ["sans.json", "inconnue.json", "vide.json"]);
+  assert.match(errors[0].messages.join(), /category/);
+  assert.match(errors[1].messages.join(), /cuisine.*inconnue/);
+});
+
+test("galerie : groupes dans l'ordre des catégories, cartes triées par titre, aucun groupe vide", () => {
+  const { presets, errors } = parsePresets(
+    files.map((file) => ({ file, text: readFileSync(`presets/${file}`, "utf8") })),
+  );
+  assert.deepEqual(errors, []);
+  const groups = groupByCategory(presets);
+  assert.deepEqual(
+    groups.map((g) => g.id),
+    CATEGORIES.map((c) => c.id),
+  );
+  assert.equal(groups.reduce((n, g) => n + g.presets.length, 0), files.length);
+  for (const g of groups) {
+    assert.ok(g.presets.length > 0, g.id);
+    assert.ok(g.title.trim() !== "");
+    const titles = g.presets.map((p) => p.title);
+    assert.deepEqual(titles, [...titles].sort((a, b) => a.localeCompare(b, "fr")), g.id);
+    for (const p of g.presets) assert.equal(p.category, g.id);
+  }
+  // Une catégorie sans préréglage n'est pas affichée.
+  const onlyOrbits = groupByCategory(presets.filter((p) => p.file === "orbites.json"));
+  assert.deepEqual(onlyOrbits.map((g) => g.id), ["astronomie"]);
+});
+
+test("amas gravitationnels : une seule carte, en 3D, que le commutateur fait passer en 2D", () => {
+  const amas = files.filter((f) => /amas/i.test(load(f).title));
+  assert.deepEqual(amas, ["amas-gravitationnels.json"]);
+  assert.ok(!existsSync("presets/amas-gravitationnels-3d.json"));
+  const s = load("amas-gravitationnels.json").settings;
+  assert.equal(s.dimensions, 3);
+  // Le commutateur change seulement `dimensions` : le même réglage tourne en 2D,
+  // dans le budget de 50 ms par pas.
+  const flat = { ...s, dimensions: 2 };
+  assert.deepEqual(validatePreset({ ...load("amas-gravitationnels.json"), settings: flat }), []);
+  const sim = createSimulation(flat, { width: 1920, height: 1080, random: () => 0.5 });
+  assert.equal(sim.dimensions, 2);
+});
+
+test("aucune vignette orpheline dans presets/vignettes/", () => {
+  const used = new Set(files.map((f) => load(f).vignette.replace(/^vignettes\//, "")));
+  for (const v of readdirSync("presets/vignettes")) assert.ok(used.has(v), v);
+});
+
+test("nouveaux préréglages « effet wow » (LIFE-23) : 3D, gravitation et grand nombre", () => {
+  const wow = [
+    "collision-de-galaxies.json",
+    "ronde-des-cinq-tribus.json",
+    "gouttes-en-apesanteur.json",
+  ];
+  for (const f of wow) {
+    const p = load(f);
+    assert.deepEqual(validatePreset(p), [], f);
+    assert.ok(existsSync(`presets/${p.vignette}`), f);
+    assert.equal(p.settings.dimensions, 3, f);
+  }
+  assert.equal(load("collision-de-galaxies.json").settings.interaction, "gravity");
+  // Nettement plus que le plus grand des préréglages d'avant (2 505 particules).
+  const total = (f) => load(f).settings.types.reduce((n, t) => n + t.count, 0);
+  assert.equal(total("ronde-des-cinq-tribus.json"), 10000);
+  assert.ok(total("gouttes-en-apesanteur.json") >= 9000);
+});
+
+test("Page blanche : un seul type, aucune règle, pour partir de zéro", () => {
+  const p = load("page-blanche.json");
+  assert.equal(p.category, "base");
+  assert.equal(p.settings.types.length, 1);
+  for (const row of Object.values(p.settings.rules)) {
+    for (const g of Object.values(row)) assert.equal(g, 0);
+  }
+});
+
+// Budget du mode gravité (engine.perf.test.js) : 5 ms par pas à 200 corps.
+test("chaque préréglage en gravitation tient dans 200 corps et 5 ms par pas", () => {
+  for (const f of files) {
+    const settings = load(f).settings;
+    if (settings.interaction !== "gravity") continue;
+    const total = settings.types.reduce((n, t) => n + t.count, 0);
+    assert.ok(total <= 200, `${f} : ${total} corps`);
+    const sim = createSimulation(settings, { width: 1920, height: 1080, random: () => 0.5 });
+    for (let k = 0; k < 5; k++) sim.step();
+    const times = [];
+    for (let k = 0; k < 21; k++) {
+      const t0 = performance.now();
+      sim.step();
+      times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    assert.ok(times[10] < 5, `${f} : pas médian ${times[10].toFixed(2)} ms`);
   }
 });
 

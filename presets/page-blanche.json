@@ -1,0 +1,18 @@
+{
+  "title": "Page blanche",
+  "description": "Un seul type de particules et aucune règle : rien ne bouge tant que vous ne réglez rien. Cliquez sur « Modifier » pour ajouter des types, remplir la matrice d'attraction, changer les nombres, la portée ou passer en 3D, et construire votre propre simulation.",
+  "category": "base",
+  "vignette": "vignettes/page-blanche.svg",
+  "settings": {
+    "epsilon": 10,
+    "friction": 0.9,
+    "range": 80,
+    "edges": "bounce",
+    "types": [
+      { "name": "particule", "color": "#e8e8e8", "count": 400, "mass": 2 }
+    ],
+    "rules": {
+      "particule": { "particule": 0 }
+    }
+  }
+}

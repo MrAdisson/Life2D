@@ -17,7 +17,7 @@ Règles :
 - Double-clic, ou touche « 0 » (canevas sélectionné) : revient à la vue de face, centrée, au zoom de départ (1, ou celui du préréglage).
 - Au clavier : flèches pour tourner, Maj + flèches pour déplacer, « + » / « − » pour zoomer.
 - Une aide rappelant ces commandes s'affiche en bas de l'écran. La caméra ne change pas la simulation ; son point de vue est gardé si l'on repasse en 2D puis en 3D pendant la même simulation, et lancer un autre préréglage repart de la vue de face.
-- Les préréglages « Amas gravitationnels en 3D » et « Système solaire (3D) » de la galerie lancent la simulation directement en 3D.
+- Les préréglages « Amas gravitationnels », « Collision de galaxies (3D) », « Ronde des cinq tribus (3D) », « Gouttes en apesanteur (3D) » et « Système solaire (3D) » de la galerie lancent la simulation directement en 3D.
 - En 2D, les particules restent des disques plats et les commandes de caméra sont inactives.
 - Au retour à la galerie, le rendu est libéré. Si WebGL 2 manque, un message d'erreur s'affiche.
 

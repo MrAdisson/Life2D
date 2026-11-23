@@ -1,6 +1,7 @@
 {
   "title": "Mouvement brownien",
   "description": "Un gaz de petites molécules agitées bombarde quelques grains jaunes, qui avancent en zigzags lents et imprévisibles. C'est l'image du mouvement brownien vu au microscope, en approximation : l'agitation vient ici des répulsions entre molécules et non de la chaleur.",
+  "category": "physique",
   "vignette": "vignettes/mouvement-brownien.svg",
   "settings": {
     "epsilon": 10,
@@ -11,7 +12,7 @@
       {
         "name": "molécule",
         "color": "#8a9bb5",
-        "count": 2500,
+        "count": 4000,
         "mass": 1
       },
       {

@@ -1,6 +1,7 @@
 {
   "title": "Lucioles",
   "description": "Des points jaunes très légers se repoussent faiblement et sans friction, sauf près de rares lanternes vertes qui les attirent. Ils dérivent en nuage et s'accrochent aux lanternes.",
+  "category": "vivant",
   "vignette": "vignettes/lucioles.svg",
   "settings": {
     "epsilon": 10,
@@ -10,13 +11,13 @@
       {
         "name": "luciole",
         "color": "#f4ff7a",
-        "count": 1200,
+        "count": 3000,
         "mass": 1
       },
       {
         "name": "lanterne",
         "color": "#58f5a0",
-        "count": 6,
+        "count": 10,
         "mass": 30
       }
     ],
