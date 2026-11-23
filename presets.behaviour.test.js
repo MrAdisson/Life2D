@@ -238,3 +238,206 @@ test("Système solaire : orbites gardées de 0,1× à 1000× (vitesse plafonnée
     assert.ok(frameSteps(system.settings).dt <= system.settings.dt + 1e-12, `${speed}×`);
   }
 });
+
+// --- LIFE-23 : préréglages aux nombres augmentés et nouveaux préréglages ---
+// Même graine et mêmes dimensions que les vignettes ; chaque test vérifie que
+// le phénomène décrit reste observable avec les nouveaux nombres.
+
+// Distance entre deux particules, bords qui se rejoignent si `edges: "wrap"`.
+const distance = (sim, settings) => {
+  const { x, y, z } = sim.state;
+  const wrap = settings.edges === "wrap";
+  const d = (v, size) => (wrap ? wrapped(v, size) : v);
+  return (i, j) =>
+    Math.hypot(d(x[i] - x[j], sim.width), d(y[i] - y[j], sim.height), d(z[i] - z[j], sim.depth || 1));
+};
+const settingsOf = (file) => JSON.parse(readFileSync(`presets/${file}`, "utf8")).settings;
+
+// Part des voisins (à moins de `radius`) de même type, sur un échantillon.
+const sameTypeShare = (sim, settings, radius = 25) => {
+  const dist = distance(sim, settings);
+  let same = 0;
+  let all = 0;
+  const stride = Math.ceil(sim.count / 500);
+  for (let i = 0; i < sim.count; i += stride) {
+    for (let j = 0; j < sim.count; j++) {
+      if (i === j || dist(i, j) >= radius) continue;
+      all++;
+      if (sim.typeIndex[i] === sim.typeIndex[j]) same++;
+    }
+  }
+  return same / all;
+};
+const meanSpeed = (sim, ids) => {
+  const { vx, vy, vz } = sim.state;
+  return mean(ids.map((i) => Math.hypot(vx[i], vy[i], vz[i])));
+};
+// Part des particules `ids` à moins de `radius` d'une particule de `others`.
+const shareNear = (sim, settings, ids, others, radius) => {
+  const dist = distance(sim, settings);
+  return ids.filter((i) => others.some((j) => j !== i && dist(i, j) < radius)).length / ids.length;
+};
+const sample = (ids, every = 5) => ids.filter((_, k) => k % every === 0);
+
+for (const dimensions of [3, 2]) {
+  test(`Amas gravitationnels (${dimensions}D) : la poussière s'agglomère autour des étoiles`, () => {
+    const settings = { ...settingsOf("amas-gravitationnels.json"), dimensions };
+    const sim = createSimulation(settings, { width: W, height: H, random: seeded(42) });
+    const ids = (t) => [...Array(sim.count).keys()].filter((i) => sim.typeIndex[i] === t);
+    const stars = ids(0);
+    const dust = sample(ids(1));
+    const before = shareNear(sim, settings, dust, stars, 40);
+    for (let k = 0; k < 900; k++) sim.step();
+    const after = shareNear(sim, settings, dust, stars, 40);
+    assert.ok(after > before + 0.25, `poussière près d'une étoile : ${before.toFixed(2)} → ${after.toFixed(2)}`);
+  });
+}
+
+test("Cellules et membranes : la membrane se range autour des noyaux", () => {
+  const { sim, of, run } = start("cellules-membranes.json");
+  const settings = settingsOf("cellules-membranes.json");
+  const membrane = sample(of("membrane"));
+  const before = shareNear(sim, settings, membrane, of("noyau"), 40);
+  run(600);
+  const after = shareNear(sim, settings, membrane, of("noyau"), 40);
+  assert.ok(after > 0.8 && after > before + 0.2, `${before.toFixed(2)} → ${after.toFixed(2)}`);
+});
+
+test("Chasseurs et proies : la poursuite ne s'arrête pas, les proies restent en bancs", () => {
+  const { sim, of, run } = start("chasseurs-proies.json");
+  run(900);
+  assert.ok(meanSpeed(sim, of("chasseur")) > 0.4, "chasseurs en mouvement");
+  assert.ok(meanSpeed(sim, of("proie")) > 0.15, "proies en fuite");
+  assert.ok(sameTypeShare(sim, settingsOf("chasseurs-proies.json")) > 0.9, "bancs de proies");
+});
+
+test("Cristallisation : chaque ion a pour plus proche voisin un ion de couleur opposée", () => {
+  const { sim, run } = start("cristallisation.json");
+  const { x, y } = sim.state;
+  const opposite = () => {
+    let n = 0;
+    let all = 0;
+    for (let i = 0; i < sim.count; i += 7) {
+      let best = Infinity;
+      let nearest = -1;
+      for (let j = 0; j < sim.count; j++) {
+        const d = j === i ? Infinity : Math.hypot(x[i] - x[j], y[i] - y[j]);
+        if (d < best) [best, nearest] = [d, j];
+      }
+      all++;
+      if (sim.typeIndex[nearest] !== sim.typeIndex[i]) n++;
+    }
+    return n / all;
+  };
+  assert.ok(opposite() < 0.65, "mélange au hasard au départ");
+  run(300);
+  assert.ok(opposite() > 0.95, "réseau alterné");
+});
+
+test("Feu d'artifice : sans frein, les gerbes restent mêlées et en mouvement", () => {
+  const { sim, run } = start("feu-d-artifice.json");
+  run(900);
+  const all = [...Array(sim.count).keys()];
+  assert.ok(meanSpeed(sim, all) > 0.4, "toujours en mouvement");
+  const share = sameTypeShare(sim, settingsOf("feu-d-artifice.json"));
+  assert.ok(share < 0.45, `couleurs mêlées (${share.toFixed(2)})`);
+});
+
+test("Huile et eau : les deux liquides se démêlent en plaques", () => {
+  const { sim, run } = start("huile-et-eau.json");
+  const settings = settingsOf("huile-et-eau.json");
+  assert.ok(sameTypeShare(sim, settings) < 0.6, "mélangés au départ");
+  run(600);
+  assert.ok(sameTypeShare(sim, settings) > 0.95, "démêlés");
+});
+
+test("Lucioles : le nuage s'accroche aux lanternes", () => {
+  const { sim, of, run } = start("lucioles.json");
+  const settings = settingsOf("lucioles.json");
+  const flies = sample(of("luciole"));
+  const before = shareNear(sim, settings, flies, of("lanterne"), 80);
+  run(1200);
+  const after = shareNear(sim, settings, flies, of("lanterne"), 80);
+  assert.ok(after > 0.75 && after > before + 0.4, `${before.toFixed(2)} → ${after.toFixed(2)}`);
+});
+
+test("Nébuleuse : des volutes en mouvement qui se figent peu à peu", () => {
+  const { sim, run } = start("nebuleuse.json");
+  const all = [...Array(sim.count).keys()];
+  run(600);
+  assert.ok(meanSpeed(sim, all) > 0.2, "volutes en mouvement");
+  run(1800);
+  assert.ok(meanSpeed(sim, all) < 0.05, "figées");
+});
+
+test("Orbites : les grains tournent sans se poser sur les astres", () => {
+  const { sim, of, run } = start("orbites.json");
+  const settings = settingsOf("orbites.json");
+  run(900);
+  const grains = sample(of("grain"));
+  assert.ok(meanSpeed(sim, grains) > 1, "grains en mouvement");
+  assert.ok(shareNear(sim, settings, grains, of("astre"), 40) < 0.2, "grains pas posés");
+});
+
+test("Trois tribus : des taches colorées qui se poursuivent sans fin", () => {
+  const { sim, run } = start("trois-tribus.json");
+  const settings = settingsOf("trois-tribus.json");
+  assert.ok(sameTypeShare(sim, settings) < 0.4, "mélange au départ");
+  run(900);
+  assert.ok(sameTypeShare(sim, settings) > 0.65, "taches de même couleur");
+  assert.ok(meanSpeed(sim, [...Array(sim.count).keys()]) > 0.5, "poursuite");
+});
+
+test("Ronde des cinq tribus (3D) : 10 000 particules en essaims qui se poursuivent", () => {
+  const { sim, run } = start("ronde-des-cinq-tribus.json");
+  const settings = settingsOf("ronde-des-cinq-tribus.json");
+  assert.equal(settings.dimensions, 3);
+  assert.equal(sim.count, 10000);
+  assert.ok(sameTypeShare(sim, settings, 30) < 0.3, "mélange au départ");
+  run(1200);
+  assert.ok(sameTypeShare(sim, settings, 30) > 0.45, "essaims de même couleur");
+  assert.ok(meanSpeed(sim, [...Array(sim.count).keys()]) > 0.5, "ronde en mouvement");
+});
+
+test("Gouttes en apesanteur (3D) : chaque liquide se rassemble en gouttes", () => {
+  const { sim, run } = start("gouttes-en-apesanteur.json");
+  const settings = settingsOf("gouttes-en-apesanteur.json");
+  assert.equal(settings.dimensions, 3);
+  assert.equal(settings.gravity ?? 0, 0);
+  assert.ok(sameTypeShare(sim, settings, 30) < 0.45, "mélange au départ");
+  run(1200);
+  assert.ok(sameTypeShare(sim, settings, 30) > 0.85, "gouttes séparées");
+});
+
+test("Collision de galaxies (3D) : bras de marée au passage, cœurs liés ensuite", () => {
+  const { sim, of } = start("collision-de-galaxies.json");
+  const { x, y, z } = sim.state;
+  const [a, b] = of("cœur");
+  const stars = [...of("galaxie bleue"), ...of("galaxie dorée")];
+  assert.equal(sim.count, 200);
+  const d = (i, j) => Math.hypot(x[i] - x[j], y[i] - y[j], z[i] - z[j]);
+  // Étoiles à plus de 300 unités des deux cœurs (disques de 140 au départ).
+  const torn = () => stars.filter((i) => Math.min(d(i, a), d(i, b)) > 300).length;
+  assert.equal(torn(), 0, "disques intacts au départ");
+  const start0 = d(a, b);
+  let closest = Infinity;
+  let farthest = 0;
+  for (let k = 0; k < 600; k++) {
+    sim.frame();
+    closest = Math.min(closest, d(a, b));
+  }
+  assert.ok(closest < start0 / 2, `les galaxies se frôlent (${closest.toFixed(0)})`);
+  assert.ok(torn() > 40, `étoiles arrachées : ${torn()}`);
+  for (let k = 0; k < 2400; k++) {
+    sim.frame();
+    farthest = Math.max(farthest, d(a, b));
+  }
+  assert.ok(farthest < 1000, `cœurs liés (au plus ${farthest.toFixed(0)})`);
+});
+
+test("Page blanche : aucune règle, rien ne bouge", () => {
+  const { sim, run } = start("page-blanche.json");
+  const x0 = Float64Array.from(sim.state.x.subarray(0, sim.count));
+  run(300);
+  assert.deepEqual(Float64Array.from(sim.state.x.subarray(0, sim.count)), x0);
+});
