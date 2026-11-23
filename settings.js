@@ -28,6 +28,12 @@
 //             la même pour toutes les particules (négative : vers le haut ;
 //             absente ou 0 : aucune),
 //   edges:    "bounce" (rebond, par défaut) ou "wrap" (traversée),
+//   collisions: booléen (false par défaut) : true, deux particules dont les
+//             disques (2D) ou sphères (3D) de rayon `radius` se touchent
+//             rebondissent par un choc élastique (quantité de mouvement et
+//             énergie cinétique conservées) et sont écartées l'une de
+//             l'autre ; absent ou false : elles se traversent. Relu à chaque
+//             pas, dans les deux modes d'interaction,
 //   range:    nombre, portée d'interaction en pixels : deux particules plus
 //             éloignées n'exercent aucune force l'une sur l'autre
 //             (Infinity ou absente : portée illimitée),

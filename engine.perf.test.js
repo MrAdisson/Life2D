@@ -1,6 +1,7 @@
 // Garde-fou de performance : un pas du moteur à 10 000 particules, portée
 // finie, doit tenir dans le budget ; en mode gravité, un pas à 200 corps, et
 // une image de 10 sous-pas à 200 corps dans le budget d'un pas à portée finie.
+// Les deux premiers budgets valent aussi avec les collisions activées.
 // Fait partie de `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +12,8 @@ import { startSettings } from "./settings.js";
 export const STEP_BUDGET_MS = 50;
 const PARTICLES = 10000;
 
-test(`un pas à ${PARTICLES} particules (portée finie) tient en moins de ${STEP_BUDGET_MS} ms`, () => {
+for (const collisions of [false, true]) {
+test(`un pas à ${PARTICLES} particules (portée finie${collisions ? ", collisions" : ""}) tient en moins de ${STEP_BUDGET_MS} ms`, () => {
   // Réglage de départ (portée de 60 px) à 10 000 particules, mêmes proportions.
   const total = startSettings.types.reduce((n, t) => n + t.count, 0);
   const settings = structuredClone(startSettings);
@@ -22,6 +24,7 @@ test(`un pas à ${PARTICLES} particules (portée finie) tient en moins de ${STEP
   settings.types[1].count += PARTICLES - settings.types.reduce((n, t) => n + t.count, 0);
   assert.equal(settings.types.reduce((n, t) => n + t.count, 0), PARTICLES);
   assert.ok(Number.isFinite(settings.range));
+  if (collisions) settings.collisions = true;
 
   let seed = 1;
   const sim = createSimulation(settings, {
@@ -45,13 +48,15 @@ test(`un pas à ${PARTICLES} particules (portée finie) tient en moins de ${STEP
     `pas médian ${median.toFixed(1)} ms > budget ${STEP_BUDGET_MS} ms`,
   );
 });
+}
 
 // Mode gravitation universelle : calcul direct sur toutes les paires, prévu
 // pour un petit nombre de corps. Budget : un pas à 200 corps en 3D.
 export const GRAVITY_STEP_BUDGET_MS = 5;
 const BODIES = 200;
 
-test(`gravité : un pas à ${BODIES} corps (toutes les paires) tient en moins de ${GRAVITY_STEP_BUDGET_MS} ms`, () => {
+for (const collisions of [false, true]) {
+test(`gravité : un pas à ${BODIES} corps (toutes les paires${collisions ? ", collisions" : ""}) tient en moins de ${GRAVITY_STEP_BUDGET_MS} ms`, () => {
   let seed = 3;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const settings = {
@@ -60,6 +65,7 @@ test(`gravité : un pas à ${BODIES} corps (toutes les paires) tient en moins de
     epsilon: 1,
     friction: 1,
     dimensions: 3,
+    collisions,
     types: [
       { name: "soleil", color: "yellow", count: 1, mass: 1000 },
       { name: "corps", color: "white", count: BODIES - 1, mass: 1 },
@@ -81,6 +87,7 @@ test(`gravité : un pas à ${BODIES} corps (toutes les paires) tient en moins de
     `pas médian ${median.toFixed(3)} ms > budget ${GRAVITY_STEP_BUDGET_MS} ms`,
   );
 });
+}
 
 // Pas d'image en mode gravité : `substeps` pas de dt (vitesse-Verlet, une
 // évaluation des forces par pas). Budget : celui d'un pas à portée finie.
