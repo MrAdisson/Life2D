@@ -14,6 +14,7 @@ La section « Physique » du panneau règle les règles globales de la simulatio
 - **Gravité verticale** (pixels par unité de temps², soit par pas² avec le pas de temps par défaut ; 0 par défaut) : accélération constante ajoutée à la vitesse de toutes les particules, vers le bas (valeur négative : vers le haut), quelle que soit leur masse. À ne pas confondre avec la gravitation universelle entre corps (voir CAP-APPLIQUER-LA-GRAVITATION-UNIVERSELLE-ENT). Curseur de −0,2 à 0,2 et champ acceptant toute valeur ; une saisie non numérique est refusée avec un message.
 - **Pas de temps** et **sous-pas par image** : voir CAP-INTEGRER-LE-MOUVEMENT-AVEC-UN-PAS-DE-TEM.
 - **Bords** : « Rebond » (la vitesse s'inverse au contact du bord) ou « Traversée » (la particule ressort par le bord opposé).
+- **Collisions** : case à cocher, voir CAP-SIMULATION-ACTIVER-OU-DESACTIVER-LES.
 
 Limites : avec la traversée, les forces ne s'exercent pas à travers les bords ; une portée illimitée ou très grande ralentit le calcul avec beaucoup de particules ; la gravité est toujours verticale (pas de direction réglable) ; en rebond, une forte gravité peut faire « coller » les particules contre le bas du canevas ; un epsilon très petit peut rendre la simulation instable.
 

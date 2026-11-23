@@ -159,6 +159,10 @@ test("worker : gravité et epsilon modifiés s'appliquent au pas suivant sans «
   const plain = run({});
   assert.notDeepEqual(run({ gravity: 0.1 }), plain);
   assert.notDeepEqual(run({ epsilon: 1 }), plain);
+  // Collisions (LIFE-25) : activées en cours de route, sans « init » ;
+  // désactivées (false, comme l'écrit le panneau) : calcul d'avant.
+  assert.notDeepEqual(run({ collisions: true }), plain);
+  assert.deepEqual(run({ collisions: false }), plain);
 });
 
 test("worker : en 3D, le tampon transporte x, y, z et z évolue", () => {

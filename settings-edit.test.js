@@ -8,6 +8,7 @@ import {
   hasRandomMass,
   needsRangeWarning,
   removeType,
+  setCollisions,
   setCount,
   setDimensions,
   setEpsilon,
@@ -160,6 +161,17 @@ test("setDimensions : 3 ou 2, toute autre valeur donne 2", () => {
   assert.equal(s.dimensions, 2);
   setDimensions(s, 7);
   assert.equal(s.dimensions, 2);
+});
+
+test("setCollisions : true active, toute autre valeur écrit false (envoyé au Worker)", () => {
+  const s = fresh();
+  assert.equal(s.collisions, undefined);
+  setCollisions(s, true);
+  assert.equal(s.collisions, true);
+  setCollisions(s, false);
+  assert.equal(s.collisions, false);
+  setCollisions(s, "oui");
+  assert.equal(s.collisions, false);
 });
 
 // Polish LIFE-20 : masse des corps placés et taille de l'espace.
