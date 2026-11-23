@@ -1,0 +1,51 @@
+{
+  "title": "Gouttes en apesanteur (3D)",
+  "description": "Neuf mille particules de trois liquides qui ne se mélangent pas flottent sans gravité dans un volume. Chaque liquide se rassemble en gouttes rondes qui grossissent en fusionnant, comme dans une station spatiale (approximation, sans vraie tension de surface).",
+  "category": "chimie",
+  "vignette": "vignettes/gouttes-en-apesanteur.svg",
+  "settings": {
+    "dimensions": 3,
+    "depth": 700,
+    "epsilon": 10,
+    "friction": 0.93,
+    "range": 100,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "mercure",
+        "color": "#cfd8e3",
+        "count": 3000,
+        "mass": 2
+      },
+      {
+        "name": "corail",
+        "color": "#ff7a66",
+        "count": 3000,
+        "mass": 2
+      },
+      {
+        "name": "lagon",
+        "color": "#3dd6c6",
+        "count": 3000,
+        "mass": 2
+      }
+    ],
+    "rules": {
+      "mercure": {
+        "mercure": -0.48,
+        "corail": 0.6,
+        "lagon": 0.6
+      },
+      "corail": {
+        "mercure": 0.6,
+        "corail": -0.48,
+        "lagon": 0.6
+      },
+      "lagon": {
+        "mercure": 0.6,
+        "corail": 0.6,
+        "lagon": -0.48
+      }
+    }
+  }
+}

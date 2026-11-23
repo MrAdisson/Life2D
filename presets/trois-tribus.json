@@ -1,6 +1,7 @@
 {
   "title": "Trois tribus",
   "description": "Chaque couleur poursuit la suivante, et la dernière poursuit la première. Aucune ne gagne, alors le tourbillon de taches colorées se reforme sans cesse.",
+  "category": "vivant",
   "vignette": "vignettes/trois-tribus.svg",
   "settings": {
     "epsilon": 10,
@@ -11,19 +12,19 @@
       {
         "name": "corail",
         "color": "#ff7a66",
-        "count": 600,
+        "count": 1500,
         "mass": 2
       },
       {
         "name": "menthe",
         "color": "#6ef0b4",
-        "count": 600,
+        "count": 1500,
         "mass": 2
       },
       {
         "name": "indigo",
         "color": "#7a7bff",
-        "count": 600,
+        "count": 1500,
         "mass": 2
       }
     ],

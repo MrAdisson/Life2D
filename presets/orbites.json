@@ -1,6 +1,7 @@
 {
   "title": "Orbites",
   "description": "Quelques astres très lourds attirent des grains légers sans aucune perte de vitesse. Les grains ne se posent pas : ils tournent autour en rubans.",
+  "category": "astronomie",
   "vignette": "vignettes/orbites.svg",
   "settings": {
     "epsilon": 10,
@@ -17,7 +18,7 @@
       {
         "name": "grain",
         "color": "#c28bff",
-        "count": 1500,
+        "count": 3000,
         "mass": 1
       }
     ],

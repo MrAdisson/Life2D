@@ -1,6 +1,7 @@
 {
   "title": "Huile et eau",
   "description": "Deux couleurs se repoussent entre elles mais s'attirent entre semblables. Elles se démêlent en grandes plaques, comme deux liquides qui ne se mélangent pas.",
+  "category": "chimie",
   "vignette": "vignettes/huile-et-eau.svg",
   "settings": {
     "epsilon": 10,
@@ -11,13 +12,13 @@
       {
         "name": "huile",
         "color": "#ffc83d",
-        "count": 900,
+        "count": 2500,
         "mass": 2
       },
       {
         "name": "eau",
         "color": "#3d8bff",
-        "count": 900,
+        "count": 2500,
         "mass": 2
       }
     ],

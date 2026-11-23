@@ -1,6 +1,7 @@
 {
   "title": "Système solaire (3D)",
   "description": "Le Soleil et les huit planètes avec leurs masses et orbites réelles (données J2000), distances à l’échelle : une année terrestre passe en une demi-minute à la vitesse 1. Dézoomez pour voir jusqu’à Neptune, cliquez sur une planète pour la suivre.",
+  "category": "astronomie",
   "vignette": "vignettes/systeme-solaire.svg",
   "settings": {
     "interaction": "gravity",

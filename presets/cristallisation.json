@@ -1,6 +1,7 @@
 {
   "title": "Cristallisation",
   "description": "Les particules de même couleur se repoussent et celles de couleur opposée s'attirent. Avec la friction qui refroidit le tout, elles se rangent en un réseau régulier, comme les ions d'un sel.",
+  "category": "chimie",
   "vignette": "vignettes/cristallisation.svg",
   "settings": {
     "epsilon": 10,
@@ -10,13 +11,13 @@
       {
         "name": "cation",
         "color": "#ffb347",
-        "count": 1000,
+        "count": 2500,
         "mass": 4
       },
       {
         "name": "anion",
         "color": "#6ec6ff",
-        "count": 1000,
+        "count": 2500,
         "mass": 4
       }
     ],

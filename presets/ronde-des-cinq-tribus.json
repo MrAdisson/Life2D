@@ -1,0 +1,73 @@
+{
+  "title": "Ronde des cinq tribus (3D)",
+  "description": "Dix mille particules de cinq couleurs, dans un volume : chaque couleur poursuit la suivante et fuit la précédente, la cinquième poursuivant la première. Les essaims colorés se lancent les uns après les autres dans une ronde sans fin, à suivre en faisant tourner la caméra.",
+  "category": "vivant",
+  "vignette": "vignettes/ronde-des-cinq-tribus.svg",
+  "settings": {
+    "dimensions": 3,
+    "depth": 400,
+    "epsilon": 10,
+    "friction": 0.94,
+    "range": 80,
+    "edges": "wrap",
+    "types": [
+      {
+        "name": "rubis",
+        "color": "#ff5a6e",
+        "count": 2000,
+        "mass": 2
+      },
+      {
+        "name": "ambre",
+        "color": "#ffb84d",
+        "count": 2000,
+        "mass": 2
+      },
+      {
+        "name": "jade",
+        "color": "#5ee08f",
+        "count": 2000,
+        "mass": 2
+      },
+      {
+        "name": "azur",
+        "color": "#4db3ff",
+        "count": 2000,
+        "mass": 2
+      },
+      {
+        "name": "améthyste",
+        "color": "#b77bff",
+        "count": 2000,
+        "mass": 2
+      }
+    ],
+    "rules": {
+      "rubis": {
+        "rubis": -1.92,
+        "ambre": -9.6,
+        "améthyste": 9.6
+      },
+      "ambre": {
+        "ambre": -1.92,
+        "jade": -9.6,
+        "rubis": 9.6
+      },
+      "jade": {
+        "jade": -1.92,
+        "azur": -9.6,
+        "ambre": 9.6
+      },
+      "azur": {
+        "azur": -1.92,
+        "améthyste": -9.6,
+        "jade": 9.6
+      },
+      "améthyste": {
+        "améthyste": -1.92,
+        "rubis": -9.6,
+        "azur": 9.6
+      }
+    }
+  }
+}
