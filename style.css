@@ -520,7 +520,8 @@ button.back {
   text-align: center;
 }
 .gallery h1,
-.gallery h2 {
+.gallery h2,
+.gallery h3 {
   color: #eef0f7;
 }
 .gallery h1 {
@@ -530,6 +531,19 @@ button.back {
 .gallery-intro {
   margin: 0 0 24px;
   color: #9aa0b4;
+}
+.gallery-section {
+  margin: 0 0 32px;
+}
+.gallery-section-title {
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 1.4em;
+  text-align: left;
+}
+.gallery-errors .gallery-section-title {
+  color: #ff8a80;
 }
 .gallery .cards {
   display: grid;
@@ -578,7 +592,7 @@ button.back {
   color: #9aa0b4;
   font-size: 13px;
 }
-.card-launch h2 {
+.card-launch h3 {
   margin: 10px 14px 4px;
   font-size: 1.1em;
 }
@@ -599,7 +613,7 @@ button.back {
   border-color: #ff8a80;
   color: #ff8a80;
 }
-.card-error h2 {
+.card-error h3 {
   margin: 0 0 6px;
   font-size: 1em;
 }
