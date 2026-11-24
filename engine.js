@@ -80,6 +80,11 @@ for (const field of FIELDS) {
 // MAX_SUBSTEPS, 1 par défaut, relu à chaque image) : c'est un pas d'image.
 // settings.speed (multiplicateur, 1 par défaut) change le nombre de sous-pas
 // et leur durée : voir frameSteps().
+//
+// settings.collisions (true : activées ; absent ou autre valeur : aucune
+// collision, calcul identique au bit près à celui d'avant), relu à chaque
+// pas : après l'intégration, les particules qui se touchent rebondissent par
+// un choc élastique et sont écartées (voir collide()).
 const component = (values, k) => {
   const v = Array.isArray(values) ? values[k] : undefined;
   return Number.isFinite(v) ? v : 0;
@@ -747,6 +752,172 @@ export const createSimulation = (
     }
   };
 
+  // --- Collisions (settings.collisions === true, relu à chaque pas) ---
+  // Après l'intégration du pas, chaque paire dont les disques (2D) ou sphères
+  // (3D) se touchent (distance ≤ somme des rayons `radius`) :
+  // - si elle se rapproche, reçoit un choc élastique le long de la ligne des
+  //   centres (impulsion 2·mi·mj/(mi+mj)·vrel : quantité de mouvement et
+  //   énergie cinétique de la paire conservées) ;
+  // - si elle s'interpénètre, est écartée le long de cette ligne, chacune en
+  //   proportion inverse de sa masse (centre de masse inchangé).
+  // Détection par une grille spatiale propre aux collisions. Les
+  // distances sont prises dans la boîte, sans passer par les bords qui se
+  // rejoignent (comme les forces). Renvoie true si des positions ont bougé.
+  let hitStart = new Uint32Array(0);
+  let hitCursor = new Uint32Array(0);
+  let hitOf = new Uint32Array(0);
+  let hitItems = new Uint32Array(0);
+  // Particules écartées pendant le pas (1), à ramener dans la boîte.
+  let pushed = new Uint8Array(0);
+  const collide = () => {
+    const { x, y, z, vx, vy, vz, mass, radius } = state;
+    if (count < 2) return false;
+    // Cases de deux fois le rayon moyen : chaque paire est examinée depuis la
+    // plus grande des deux particules (à rayon égal : depuis le plus petit
+    // indice), qui cherche dans les cases jusqu'à son diamètre ; les petites,
+    // les plus nombreuses, ne regardent que les cases voisines.
+    let sumR = 0;
+    for (let i = 0; i < count; i++) sumR += radius[i];
+    if (!(sumR > 0) || !Number.isFinite(sumR)) return false;
+    let size = (2 * sumR) / count;
+    const volume = is3d ? width * height * depth : width * height;
+    const minSize = is3d ? Math.cbrt(volume / MAX_CELLS) : Math.sqrt(volume / MAX_CELLS);
+    if (minSize > size) size = minSize;
+    const hc = Math.max(1, Math.min(MAX_CELLS, Math.ceil(width / size)));
+    const hr = Math.max(1, Math.min(MAX_CELLS, Math.ceil(height / size)));
+    const hl = is3d ? Math.max(1, Math.min(MAX_CELLS, Math.ceil(depth / size))) : 1;
+    const cells = hc * hr * hl;
+    const scale = 1 / size;
+    const coord = (v, n) => {
+      const c = Math.floor(v * scale);
+      if (!(c >= 0)) return 0;
+      return c >= n ? n - 1 : c;
+    };
+    if (hitStart.length !== cells + 1) {
+      hitStart = new Uint32Array(cells + 1);
+      hitCursor = new Uint32Array(cells);
+    }
+    if (hitOf.length !== count) {
+      hitOf = new Uint32Array(count);
+      hitItems = new Uint32Array(count);
+      pushed = new Uint8Array(count);
+    }
+    hitStart.fill(0);
+    for (let i = 0; i < count; i++) {
+      const c = ((is3d ? coord(z[i], hl) : 0) * hr + coord(y[i], hr)) * hc + coord(x[i], hc);
+      hitOf[i] = c;
+      hitStart[c + 1]++;
+    }
+    for (let c = 0; c < cells; c++) hitStart[c + 1] += hitStart[c];
+    hitCursor.set(hitStart.subarray(0, cells));
+    for (let i = 0; i < count; i++) hitItems[hitCursor[hitOf[i]]++] = i;
+
+    const plane = hc * hr;
+    let moved = false;
+    for (let i = 0; i < count; i++) {
+      const ri = radius[i];
+      if (!(ri >= 0)) continue;
+      // Cases à parcourir : une paire en contact est à moins de 2·ri.
+      const k = Math.min(MAX_CELLS, Math.max(1, Math.ceil(2 * ri * scale)));
+      const ci = hitOf[i];
+      const cx = ci % hc;
+      const cyz = (ci - cx) / hc;
+      const cy = cyz % hr;
+      const cz = (cyz - cy) / hr;
+      const c0 = cx > k ? cx - k : 0;
+      const c1 = cx + k < hc ? cx + k : hc - 1;
+      const r0 = cy > k ? cy - k : 0;
+      const r1 = cy + k < hr ? cy + k : hr - 1;
+      const l0 = cz > k ? cz - k : 0;
+      const l1 = cz + k < hl ? cz + k : hl - 1;
+      for (let l = l0; l <= l1; l++) {
+        for (let r = r0; r <= r1; r++) {
+          const base = l * plane + r * hc;
+          const end = hitStart[base + c1 + 1];
+          for (let s = hitStart[base + c0]; s < end; s++) {
+            const j = hitItems[s];
+            const rj = radius[j];
+            // Chaque paire une fois, depuis la plus grande particule.
+            if (rj > ri || (rj === ri && j <= i)) continue;
+            const reachIJ = ri + rj;
+            const dx = x[j] - x[i];
+            const dy = y[j] - y[i];
+            const dz = is3d ? z[j] - z[i] : 0;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > reachIJ * reachIJ) continue;
+            const d = Math.sqrt(d2);
+            // Normale unitaire de i vers j ; centres confondus : axe x.
+            let nx = 1;
+            let ny = 0;
+            let nz = 0;
+            if (d > 0) {
+              nx = dx / d;
+              ny = dy / d;
+              nz = dz / d;
+            }
+            const mi = mass[i];
+            const mj = mass[j];
+            const massive = mi > 0 && mj > 0;
+            const vrel =
+              (vx[j] - vx[i]) * nx + (vy[j] - vy[i]) * ny + (is3d ? (vz[j] - vz[i]) * nz : 0);
+            if (vrel < 0 && massive) {
+              // Choc élastique : seules les composantes normales s'échangent.
+              const impulse = (2 * mi * mj * vrel) / (mi + mj);
+              const ki = impulse / mi;
+              const kj = impulse / mj;
+              vx[i] += ki * nx;
+              vy[i] += ki * ny;
+              vx[j] -= kj * nx;
+              vy[j] -= kj * ny;
+              if (is3d) {
+                vz[i] += ki * nz;
+                vz[j] -= kj * nz;
+              }
+            }
+            const overlap = reachIJ - d;
+            if (overlap > 0) {
+              const wi = massive ? mj / (mi + mj) : 0.5;
+              const wj = massive ? mi / (mi + mj) : 0.5;
+              x[i] -= nx * overlap * wi;
+              y[i] -= ny * overlap * wi;
+              x[j] += nx * overlap * wj;
+              y[j] += ny * overlap * wj;
+              if (is3d) {
+                z[i] -= nz * overlap * wi;
+                z[j] += nz * overlap * wj;
+              }
+              moved = true;
+              pushed[i] = 1;
+              pushed[j] = 1;
+            }
+          }
+        }
+      }
+    }
+    if (moved) {
+      // Une particule écartée qui sort de la boîte y est ramenée, sans toucher
+      // aux vitesses. Traversée : de l'autre côté. Rebond : à un rayon du bord
+      // au plus (contre le bord, le rebond inverserait sa vitesse à chaque pas
+      // et la pression des voisines l'y maintiendrait, ce qui crée de
+      // l'énergie).
+      const wrap = settings.edges === "wrap";
+      const inside = (v, n, r) => {
+        if (wrap) return v >= 0 && v < n ? v : ((v % n) + n) % n;
+        const lo = r < n / 2 ? r : n / 2;
+        return v < lo ? lo : v > n - lo ? n - lo : v;
+      };
+      for (let i = 0; i < count; i++) {
+        if (!pushed[i]) continue;
+        pushed[i] = 0;
+        const r = radius[i];
+        x[i] = inside(x[i], width, r);
+        y[i] = inside(y[i], height, r);
+        if (is3d) z[i] = inside(z[i], depth, r);
+      }
+    }
+    return moved;
+  };
+
   // Un pas de dt (settings.dt, relu à chaque pas).
   const step = (stepDt = timeStepOf(settings)) => {
     const dt = stepDt;
@@ -754,6 +925,8 @@ export const createSimulation = (
     if (gravityMode) {
       if (!wasGravity) accelReady = false;
       updateVerlet(dt);
+      // Positions écartées : l'accélération gardée n'y vaut plus.
+      if (settings.collisions === true && collide()) accelReady = false;
     } else {
       if (wasGravity) {
         // Les accélérations gardées par Verlet ne valent pas pour les règles.
@@ -768,6 +941,7 @@ export const createSimulation = (
         applyForces();
         update(dt);
       }
+      if (settings.collisions === true) collide();
     }
     wasGravity = gravityMode;
     time += dt;

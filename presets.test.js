@@ -303,3 +303,22 @@ test("`width` et `height` (taille de l'espace) : nombres finis > 0", () => {
     assert.match(validatePreset(withSettings({ height: bad })).join(), /height/);
   }
 });
+
+test("`collisions` : booléen accepté, toute autre valeur refusée avec un message clair", () => {
+  const base = load("quatre-familles.json");
+  const withSettings = (patch) => ({ ...base, settings: { ...base.settings, ...patch } });
+  assert.deepEqual(validatePreset(withSettings({ collisions: true })), []);
+  assert.deepEqual(validatePreset(withSettings({ collisions: false })), []);
+  for (const collisions of ["true", 1, null, {}]) {
+    assert.deepEqual(validatePreset(withSettings({ collisions })), [
+      "`settings.collisions` : booléen attendu (true ou false)",
+    ]);
+  }
+});
+
+test("collisions activées sur « Mouvement brownien » et « Amas gravitationnels » seulement", () => {
+  const withCollisions = files.filter((f) => load(f).settings.collisions === true).sort();
+  assert.deepEqual(withCollisions, ["amas-gravitationnels.json", "mouvement-brownien.json"]);
+  // Système solaire : rayons d'affichage exagérés, pas des tailles physiques.
+  assert.equal(load("systeme-solaire.json").settings.collisions, undefined);
+});

@@ -199,9 +199,27 @@ const fingerprint = (settings) => {
   return h.digest("hex").slice(0, 16);
 };
 
+// LIFE-25 a activé les collisions sur « Amas gravitationnels » et « Mouvement
+// brownien » (dont la friction est passée de 0,999 à 0,998, voir
+// docs/decisions.md) : les empreintes ci-dessus sont celles du réglage d'avant
+// LIFE-25 (sans la clé `collisions`, ou à false : même calcul) ; avec, leur
+// empreinte propre.
+const BEFORE_COLLISIONS = { "mouvement-brownien.json": { friction: 0.999 } };
+const COLLISION_FINGERPRINTS = {
+  "amas-gravitationnels.json": "41f224b049c0efb6",
+  "mouvement-brownien.json": "f82504dc2055658e",
+};
+
 test("préréglages existants : résultat identique au bit près (avec ou sans `bodies: []`)", () => {
   for (const [file, expected] of Object.entries(FINGERPRINTS)) {
     const settings = JSON.parse(readFileSync(`presets/${file}`, "utf8")).settings;
+    if (settings.collisions) {
+      assert.equal(fingerprint(settings), COLLISION_FINGERPRINTS[file], `${file} avec collisions`);
+      Object.assign(settings, BEFORE_COLLISIONS[file]);
+      settings.collisions = false;
+      assert.equal(fingerprint(settings), expected, `${file} avec collisions: false`);
+      delete settings.collisions;
+    }
     assert.equal(fingerprint(settings), expected, file);
     for (const t of settings.types) t.bodies = [];
     assert.equal(fingerprint(settings), expected, `${file} avec bodies: []`);

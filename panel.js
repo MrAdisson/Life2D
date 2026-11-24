@@ -16,6 +16,7 @@ import {
   parseNumber,
   removeType,
   setCount,
+  setCollisions,
   setDimensions,
   setEdges,
   setEpsilon,
@@ -453,6 +454,13 @@ export const createPanel = (
     }
   };
   syncEdges();
+  // Collisions : reflète le préréglage lancé, appliqué au pas suivant.
+  const collisionsBox = el("input", { type: "checkbox", id: "collisions" });
+  collisionsBox.checked = settings.collisions === true;
+  collisionsBox.onchange = () => {
+    setCollisions(settings, collisionsBox.checked);
+    changed();
+  };
   const dimensionButtons = [
     [2, "2D", "Espace plan : z reste à 0"],
     [3, "3D", "Espace en volume, vue orbitale : la simulation repart d'un nouveau tirage"],
@@ -768,6 +776,17 @@ export const createPanel = (
       el("span", {
         className: "help",
         textContent: "Comportement d'une particule qui atteint le bord.",
+      }),
+    ),
+    el(
+      "div",
+      { className: "field" },
+      el("label", { className: "check" }, collisionsBox, el("span", { textContent: "Collisions" })),
+      el("span", {
+        className: "help",
+        id: "collisions-help",
+        textContent:
+          "Cochée, deux particules qui se touchent rebondissent l'une sur l'autre comme des billes (choc élastique, selon leurs masses) au lieu de se traverser. Le contact se fait au rayon de la particule : la « Taille des corps » de l'affichage n'y change rien.",
       }),
     ),
   );

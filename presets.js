@@ -5,7 +5,8 @@
 // category est l'identifiant d'une catégorie de CATEGORIES (liste fermée) et
 // settings a la forme de settings.js (epsilon, friction, range, types, rules ;
 // edges, gravity, dimensions, depth, width et height facultatifs ; chaque type peut lister
-// des corps explicites `bodies` ; interaction, G, dt et substeps facultatifs). En mode
+// des corps explicites `bodies` ; interaction, G, dt, substeps et collisions
+// (booléen) facultatifs). En mode
 // "rules" (défaut), la portée est obligatoire et finie : aucune simulation ne
 // démarre avec une portée illimitée (calcul lent), et les règles sont
 // obligatoires. En mode "gravity" (gravitation universelle, portée toujours
@@ -170,6 +171,9 @@ export const validatePreset = (preset) => {
   }
   if (s.edges !== undefined && s.edges !== "bounce" && s.edges !== "wrap") {
     errors.push("`settings.edges` : « bounce » ou « wrap » attendu");
+  }
+  if (s.collisions !== undefined && typeof s.collisions !== "boolean") {
+    errors.push("`settings.collisions` : booléen attendu (true ou false)");
   }
   if (s.dimensions !== undefined && s.dimensions !== 2 && s.dimensions !== 3) {
     errors.push("`settings.dimensions` : 2 ou 3 attendu");

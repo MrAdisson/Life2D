@@ -143,6 +143,38 @@ test("Mouvement brownien : les grains errent, le gaz reste agité", () => {
   assert.ok(speed > 0.5 && speed < 2, `vitesse du gaz ${speed.toFixed(2)} px/pas`);
 });
 
+// LIFE-25 : « Mouvement brownien » active les collisions. Même graine, avec et
+// sans : sans, les billes du gaz restent imbriquées les unes dans les autres ;
+// avec, elles rebondissent et ne se chevauchent presque plus, et les grains
+// suivent un autre chemin.
+test("Mouvement brownien : avec les collisions, les billes ne s'imbriquent plus", () => {
+  const run = (collisions) => {
+    const settings = JSON.parse(readFileSync("presets/mouvement-brownien.json", "utf8")).settings;
+    assert.equal(settings.collisions, true);
+    settings.collisions = collisions;
+    const sim = createSimulation(settings, { width: W, height: H, random: seeded(42) });
+    for (let k = 0; k < 300; k++) sim.step();
+    const { x, y, radius } = sim.state;
+    let nested = 0;
+    for (let i = 0; i < sim.count; i++) {
+      for (let j = i + 1; j < sim.count; j++) {
+        const r = 0.9 * (radius[i] + radius[j]);
+        const dx = x[j] - x[i];
+        const dy = y[j] - y[i];
+        if (dx * dx + dy * dy < r * r) nested++;
+      }
+    }
+    const grains = [...Array(sim.count).keys()].filter((i) => sim.typeIndex[i] === 1);
+    return { nested, grains: grains.map((i) => [x[i], y[i]]) };
+  };
+  const on = run(true);
+  const off = run(false);
+  assert.ok(off.nested > 100, `sans collisions : ${off.nested} paires imbriquées`);
+  assert.ok(on.nested * 5 < off.nested, `avec : ${on.nested}, sans : ${off.nested}`);
+  const apart = on.grains.map(([x, y], n) => Math.hypot(x - off.grains[n][0], y - off.grains[n][1]));
+  assert.ok(Math.max(...apart) > 5, `chemins des grains : écarts ${apart.map(Math.round)}`);
+});
+
 // LIFE-20 : « Système solaire ». Le préréglage est simulé image par image
 // (frame(), comme dans la page), à plusieurs vitesses.
 const solar = (speed = 1) => {
