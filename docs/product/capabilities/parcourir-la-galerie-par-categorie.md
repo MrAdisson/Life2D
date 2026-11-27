@@ -1,8 +1,7 @@
 ---
 id: CAP-SIMULATION-PARCOURIR-LA-GALERIE-DE
 title: Parcourir la galerie de préréglages classée par catégorie
-parent: CAP-SIMULATION
-deprecated: false
+parent: CAP-GALERIE-PREREGLAGES
 ---
 
 La galerie range ses préréglages par catégorie : chaque catégorie est une section avec son titre, suivie de ses cartes, triées par ordre alphabétique du titre. Les sections apparaissent toujours dans cet ordre :

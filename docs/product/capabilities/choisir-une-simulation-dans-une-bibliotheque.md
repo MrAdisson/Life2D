@@ -1,8 +1,7 @@
 ---
 id: CAP-SIMULATION-CHOISIR-UNE-SIMULATION-DANS-UN
 title: Choisir une simulation dans une bibliothèque de préréglages
-parent: CAP-SIMULATION
-deprecated: false
+parent: CAP-GALERIE-PREREGLAGES
 ---
 
 À l'ouverture, la page affiche une galerie de préréglages : chaque carte montre une vignette, un titre et une courte description (ce qu'on observe et pourquoi). Un clic sur la carte lance la simulation plein écran avec les types, couleurs, nombres de particules et règles du préréglage ; le panneau de réglages est alors replié. Le bouton « Modifier » d'une carte lance la même simulation avec le panneau de réglages déjà déplié, pour partir du préréglage et le changer. Le bouton « ← Galerie » de la simulation l'arrête et ramène à la galerie. Une seule simulation tourne à la fois : lancer un préréglage remplace la simulation en cours.
