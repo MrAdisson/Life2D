@@ -1,7 +1,7 @@
 ---
 id: CAP-GALERIE-PREREGLAGES
 title: Galerie de préréglages
-parent: CAP-SIMULATION
+parent: 
 ---
 
 Choisir et parcourir les simulations fournies dans la galerie.
